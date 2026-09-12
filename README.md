@@ -17,7 +17,7 @@ npm ci
 npm run dev
 ```
 
-The local URL is printed by the server. Production build: `npm run build`. Type check: `npx tsc --noEmit`. Tests: `npx playwright test` (the configuration uses Chrome on macOS; adapt `executablePath` for another platform). Start the local server before browser tests.
+The local URL is printed by the server. Production build: `npm run build`. Type check: `npx tsc --noEmit`. Tests: `npx playwright test`. The test configuration uses Playwright's Chromium by default (`npx playwright install chromium`); optionally set `PLAYWRIGHT_EXECUTABLE_PATH` to a local browser and `PLAYWRIGHT_BASE_URL` to the running server. Start the local server before browser tests. In managed ChatGPT environments, use the supported supervised Sites preview and browser workflow for visual QA.
 
 ## AI setup and truthful fallbacks
 
@@ -33,7 +33,9 @@ When a key is absent or a model call fails, the game offers an explicitly labele
 
 ## Source and assets
 
-The GitHub `origin` is preserved. `.openai/hosting.json` identifies the existing ChatGPT Site and must be reused for updates. Sites' separate source repository is used for deployment. Never create a second Site for this checkout.
+The GitHub `origin` is preserved. On this dedicated `yerzhan/space-race` branch, `.openai/hosting.json` identifies Yerzhan's independent private Site (`appgprj_6aa5346ba83c8191b546394c9e32a84e`), explicitly authorized by the owner. Reuse this Site for future updates. The shared `main` branch retains Hadrien's original deployment configuration; do not merge this branch's hosting identity into `main`.
+
+Sites uses a separate source repository for publication. Keep GitHub as `origin` and the returned Sites source URL as a separate remote. After integrating upstream gameplay updates with normal Git operations, retain this branch's Site identity, build and verify, commit and push to `origin/yerzhan/space-race`, and push the identical commit to the Sites source branch. Save the archive built from that exact revision, then deploy privately and confirm completion. Never force-push shared history or create another Site for this checkout.
 
 Preset ships and three asteroid variants are authored through reproducible Blender scripts, exported as GLB, and rendered in the hangar and flight. Custom sketched ships remain browser-generated meshes. The jump portal, exhaust plumes and hyperspace star streaks are real-time Three.js effects. The space panorama, destination-planet albedo and asteroid albedo textures were generated with OpenAI image generation. No external text-to-3D provider is required.
 
