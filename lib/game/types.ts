@@ -4,13 +4,14 @@ export const FLEET: Hull[] = [
   { id:"wraith",name:"Wraith",role:"Light interceptor",color:"#7be4de",widths:[.06,.2,.35,.46,.65,1.95,2.15,.95,.4],thickness:.28,engines:2,handling:1.3,armor:80,origin:"fleet" },
   { id:"atlas",name:"Atlas",role:"Armored transporter",color:"#c3a4ef",widths:[.35,.65,.88,1.25,1.9,1.95,1.95,1.5,1.25],thickness:.68,engines:3,handling:.82,armor:125,origin:"fleet" },
 ];
-export type EncounterKind = "asteroid" | "pirate" | "portal";
+import type { ObjectType } from './objects';
+export type EncounterKind = "asteroid" | "pirate" | "portal" | "object";
 /** at is a route-progress coordinate in normal-speed course-seconds, not wall time. */
-export type Encounter = { at:number; kind:EncounterKind; x:number; y:number; count:number; points?:{x:number;y:number;radius:number}[]; gap?:{axis:string;center:number;halfWidth:number;x:number;y:number}; portalRadius?:number };
+export type Encounter = { at:number; kind:EncounterKind; x:number; y:number; count:number; objectType?:ObjectType; escort?:ObjectType; drift?:number; points?:{x:number;y:number;radius:number}[]; gap?:{axis:string;center:number;halfWidth:number;x:number;y:number}; portalRadius?:number };
 export type Mission = { title:string; events:Encounter[]; source:"openai"|"practice"; note:string;stage?:number;seed?:number;attempt?:number;challenge?:{tier:number;label:string;waves:number;gapWidth:number;portalRadius:number;pirateMotion:number;pirateInterval:number;volley:number} };
 export const DURATION = 150;
 export const CRUISE_SPEED = 29;
-export const WARP_MAX_SPEED = 2.2;
+export const WARP_MAX_SPEED = 3;
 export const WARP_DURATION = 8;
 export const MAX_PORTALS = 2;
 export const ARRIVAL_START = DURATION - 12;

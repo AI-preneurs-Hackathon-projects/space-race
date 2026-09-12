@@ -1,25 +1,30 @@
-# Yerzhan's baseline deployment
+# Yerzhan's physics and encounters update
 
-Prepared on September 12, 2026 from the freshly fetched upstream `main` commit `bbac61dc8db8a16269e2406b571477d42a112c57`.
+Prepared September 12, 2026. The freshly fetched GitHub `main` still resolves to `bbac61dc8db8a16269e2406b571477d42a112c57`; the previous private baseline is `b51c2b090ee62a2e5f5f887eaa2f4468ebe0836b`.
 
-- GitHub branch: `yerzhan/space-race`; original GitHub origin and history preserved.
-- Site: `appgprj_6aa5346ba83c8191b546394c9e32a84e`; selected account confirmed Yerzhan Karatayev as owner, with owner-only access.
-- Shared `main` and Hadrien's deployment configuration are unchanged.
-- Scope: dedicated deployment identity, portable Playwright configuration and continuation documentation. Gameplay, dependencies, assets and sketch builder are preserved.
+- Dedicated checkout/branch: `yerzhan/space-race`.
+- Private Site: `appgprj_6aa5346ba83c8191b546394c9e32a84e`.
+- URL: https://space-race-cargo-run.yerzhan452067.chatgpt.site
+- Selected account ownership was confirmed. Existing owner-only audience is preserved.
+- Shared `main`, original GitHub origin, Hadrien's deployment configuration and original assets are unchanged.
 
-## Verification
+## Delivered scope
 
-- Locked dependency installation, production Worker build and TypeScript check passed.
-- All 13 existing browser-free tests passed: steering, firing, collisions, hull/cargo damage, loss/reset, delivery, portal timing/safety, progression guards, upgrade caps, retry variation, reachable lanes and multiple completed simulated stages.
-- All six real GLBs passed the repository's binary/geometry/material verification. Blender sources and generated textures are retained.
-- The supervised browser loaded the hangar interface and explicit offline AI labels. A screenshot confirmed the existing graphics-error screen. Console evidence reports `GL_VENDOR = Disabled` and `GL_RENDERER = Disabled`; the cloud browser cannot create WebGL.
-- Therefore rendered ship appearance, interactive flight, pause/resume, hangar return, failure/retry UI, completion/upgrade UI and mobile/tablet touch layout are **not visually verified in this environment**. Simulation tests do not establish browser rendering success. Use a WebGL-capable browser for the baseline playtest.
-- No OpenAI credential from another project was used. Live generation is not verified. The existing server code returns an explicit unavailable response without a key and retains the seeded practice route and local outline builder.
+Rapier rigid bodies; inertia and counter-thrust; mass-dependent collision response; gravity/repulsion and black-hole absorption; true 3× jump acceleration and physical route progress; nearest-hit projectiles; impact health bars; chain blasts and physical debris; damaged-ship scorch/smoke/fire; repair/cargo/shield pickups; mines and seeker rockets; 25 encounter types with an optional illustrated field guide. Eighteen new original GLBs and their generators/previews are committed with the game.
 
-## Continuing this track
+## Verification and limits
 
-Reuse this Site identifier. Fetch `origin` before work and integrate teammates' changes through normal merges or rebases of unshared commits; retain this branch's hosting identity. Do not merge this identity into shared `main` or force-push shared history.
+- Production Worker build and TypeScript check.
+- 25 browser-free physics/gameplay tests, including multiple seeded complete deliveries, real travel timing, interaction chains, collision geometry, body cleanup and equal stepping at 10/20/30/60 FPS.
+- The final combined runner reports 25 passed and six browser tests blocked at launch because its Chromium executable is unavailable. The supported cloud browser check below is separate.
+- Original six GLB validators and all 18 new GLB/thumbnail validators.
+- New model contact sheet rendered and inspected from the exact source triangles using a CPU renderer.
+- Supervised preview loads the updated hangar, roster guide trigger and correct offline labels.
+- The cloud browser reports `GL_VENDOR = Disabled` / `GL_RENDERER = Disabled`. Screenshot inspection confirms the existing graphics-error screen. Therefore this environment cannot certify rendered flight, visual effects, shader appearance, touch controls, or a complete browser delivery. Browser tests are retained for a WebGL-capable environment; simulation and CPU previews are not substitutes for that check.
+- Live OpenAI remains unconfigured and unverified. Existing local fallback behavior is retained.
 
-Build and verify the desired source, commit and push to this GitHub branch, and push the identical commit to the separate Sites source repository's configured branch. Save the build archive using the complete pushed commit SHA, deploy that saved version privately, and confirm the terminal deployment result. The live URL remains the same for subsequent updates.
+## Source publishing
 
-Wait for Yerzhan's baseline playtest before feature work. Spaceship creation is the first priority. The existing builder makes a mirrored, nine-section extruded hull with fixed baseline gameplay stats; it is not unrestricted 3D generation. Meaningful in-flight AI adaptation remains future work. Progress and custom ships reset on reload.
+The exact deployed revision is recorded by the Site's saved version and Git source branch. GitHub account repository permissions and the connected integration's write access are separate. The earlier GitHub write attempt was rejected with `Resource not accessible by integration`; if that restriction remains, the dedicated GitHub branch cannot be uploaded until the integration is granted repository write access. Site source saving and publishing are independent and remain available.
+
+Future updates reuse this Site and URL, preserve GitHub history, and deploy an archive built from the exact saved source revision. No credentials belong in these files. The user authorized this physics iteration after the baseline playtest; spaceship customization and meaningful in-flight AI remain subsequent product directions.

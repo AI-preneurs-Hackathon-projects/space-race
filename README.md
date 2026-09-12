@@ -1,75 +1,74 @@
 # Space Race · Cargo Run
 
-A playable 3D browser game built with React, Three.js and a Cloudflare Workers-compatible Vinext server. Deliver medical supplies from Port Meridian to Kepler Outpost in continuous, numbered delivery stages. The base route takes 150 seconds; cruise upgrades and optional jump portals shorten the journey.
+A 3D cargo flight game with React, Three.js, Rapier rigid-body physics, and a Cloudflare Workers-compatible Vinext server. Fly medical supplies from Port Meridian to Kepler Outpost, earn hull/cruise upgrades, and continue into harder stages.
 
 ## Play
 
-- Choose Kestrel (balanced), Wraith (agile), Atlas (armored), or draw an optional custom ship.
-- WASD / arrows: steer left, right, up and down. Space: fire pulse cannons. Escape: pause.
-- On touchscreens, drag the steering pad and hold FIRE.
-- Avoid asteroids and pirate fire. Impacts damage hull and cargo. Cyan jump portals are safe: fly through the opening for a brief hyperspace boost.
-- Reach the destination with hull and cargo remaining. Choose a hull or cruise upgrade after a clear, then launch the next harder stage. Failure retries the current stage with earned upgrades preserved. Pause or return to the hangar at any time.
+- Choose Kestrel (balanced), Wraith (agile), Atlas (armored), or your sketched hull.
+- WASD/arrows steer with thrust; hold Space to fire; Escape pauses. Forward thrust is automatic.
+- Touch: drag the steering pad and hold FIRE. Use the pause button to resume or return to the hangar.
+- Flight assist slows lateral drift when controls are released. Within gravity wells, reduced assist makes the pull noticeable; counter it with thrust.
+- Shoot fuel canisters and volatile rocks near enemies for blast damage and chain reactions. Keep your own ship outside the blast.
+- Collect repair capsules, cargo caches, and shield buoys. Damaged ships show scorched panels, smoke, and, at critical hull, fire.
+- Fly through cyan jump openings for a real 3× speed boost. Speed, distance gained, route progress and approaching scenery all agree with physical displacement.
+- Clear a stage to choose +15 armor (five levels) or +5% cruise (four levels). Retry keeps earned upgrades; reload resets session progress and custom ships.
+- Open the **Field guide · 25 objects** in the hangar for recognizable models and each object's behavior.
 
-## Local development
+## Interacting space physics
+
+The local simulation owns a Rapier world and advances at a fixed 1/60-second timestep. A bounded accumulator handles rendering down to 10 FPS without slowing the game clock; longer interruptions are bounded to avoid a catch-up spiral. No network call controls movement or combat.
+
+The player, asteroids, enemy vessels, satellites, salvage, rockets, and fragments have mass and inertia. Contacts resolve momentum and restitution. Damage uses the pre-impact relative velocity, with cooldowns preventing resting contacts from draining health. Colliders are forgiving gameplay approximations: mostly spheres, with a compound hollow station ring. Projectiles use swept tests to hit the nearest crossed target without tunneling; station shots query its compound colliders.
+
+Moon, planetoid and black-hole fields attract nearby bodies, including projectiles, and a repulsor pushes them away. Forces have softened centers, finite range, acceleration caps and reaction forces on the source. Black-hole cores absorb matter. This is scaled arcade physics, not an astronomical or orbital simulator. The distant star panorama, holographic lane markers and destination backdrop are scenery; visible drifting encounter rocks are actual physical bodies.
+
+Explosions apply distance-falloff damage and impulses, can set off nearby explosives, and create physical fragments. Fragments can collide and chip other objects, but do not create full-size explosions themselves. Runtime limits are 150 entities, 48 debris pieces and 64 short-lived effects. Expired bodies, effects and completed-flight worlds are released.
+
+The jump command ramps from 1× to 3× over one second, holds for five seconds, and returns over two seconds. Engine thrust follows that command with finite acceleration; actual progress comes from the player's world position. In an unobstructed test, two jumps complete the 4,350-game-unit route in about 124 seconds, compared with 150 seconds at base cruise. Impacts, gravity and upgrades can change the result. Entry pushes nearby hazards aside and briefly shields the hull; a missed opening is harmless. Spawn spacing accounts for peak jump speed, with at least five seconds of lead and a quiet final approach.
+
+## Objects and assets
+
+The catalog in `lib/game/objects.ts` drives physics, encounters, rendering and the field guide. Its 25 types are basalt, iron and ice asteroids; volatile rock; crystal cluster; comet; wreck; cargo cache; fuel tank; mine; repair pod; shield buoy; survey satellite; solar relay; seeker rocket; raider; saucer cruiser; twin-wing fighter; wedge destroyer; orbital relay; moon; ringed planetoid; black hole; repulsor; and jump gate.
+
+The original Blender fleet and three asteroid GLBs are preserved. Eighteen new original GLBs add 7,598 triangles and about 702 KB in total, with 2–7 material draw calls each. New enemy silhouettes use familiar science-fiction archetypes with original geometry and no third-party models or logos. Fields, smoke, weapon flashes, hit sparks, blast rings and shield effects are rendered locally in Three.js.
+
+- Original editable Blender assets: [assets/blender/README.md](assets/blender/README.md).
+- New GLB generator, previews and validation: [assets/encounters/README.md](assets/encounters/README.md).
+- Runtime models: `public/models`; model thumbnails: `public/object-previews`.
+- Existing generated background textures and prompts: `assets/background`.
+
+## Develop and test
 
 ```sh
 npm ci
 npm run dev
+npm run build
+npx tsc --noEmit
+npx playwright test
+python scripts/verify-models.py
+python assets/encounters/verify_assets.py
 ```
 
-The local URL is printed by the server. Production build: `npm run build`. Type check: `npx tsc --noEmit`. Tests: `npx playwright test`. The test configuration uses Playwright's Chromium by default (`npx playwright install chromium`); optionally set `PLAYWRIGHT_EXECUTABLE_PATH` to a local browser and `PLAYWRIGHT_BASE_URL` to the running server. Start the local server before browser tests. In managed ChatGPT environments, use the supported supervised Sites preview and browser workflow for visual QA.
+The Playwright configuration uses bundled Chromium by default. Optional variables are `PLAYWRIGHT_EXECUTABLE_PATH` and `PLAYWRIGHT_BASE_URL`. Start the local server before browser tests. In managed ChatGPT environments, use the supported supervised Sites preview and Browser workflow.
 
-## AI setup and truthful fallbacks
+The 25 browser-free tests cover physics, gravity/repulsion, mass/rebound, chain damage, fragment limits, nearest-hit sweeps, hollow-ring collisions, pickups, mines, acceleration, frame-step equivalence, lifecycle cleanup, all object types, stage generation and progression. Run only these when browser graphics are unavailable:
 
-Live AI is implemented but requires a server-side OpenAI API key. Use the OpenAI Developers plugin's `openai-platform-api-key` workflow with owner approval to create/reuse a key, then set `OPENAI_API_KEY` as a secret in the existing Site's runtime environment. Do not put it in chat, source, the hosting manifest, or a client-prefixed variable. Optional server variable `OPENAI_MODEL` defaults to `gpt-4.1-mini`.
+```sh
+npx playwright test --grep-invert 'hangar, drawing|mobile layout|failed delivery reaches|AI service failure|a late AI plan|real delivery advances'
+```
 
-For local development, copy `.env.example` to ignored `.env` and configure the key there using a secure credential workflow. Both endpoints use the OpenAI Responses API with strict JSON schema, no response storage, input size limits, timeouts, and validated geometry/gameplay bounds. The API key is accessed only by server routes.
+Six additional browser tests cover the hangar, sketching, controls, pause/retry, mobile UI, API fallback and full delivery/upgrade flow. The long-flight controller uses development-only read-only canvas telemetry, absent from the production build. A browser without WebGL cannot validate flight rendering or touch gameplay; see [DEPLOYMENT.md](DEPLOYMENT.md) for the actual verification boundary.
 
-- `/api/ship`: sends the top-down sketch image to OpenAI vision, obtains nine half-widths, thickness and engine count, then validates the blueprint. The same real extruded 3D mesh appears in preview and in flight. This is a constrained, mirrored stylized hull, not unrestricted mesh reconstruction.
-- `/api/mission`: asks OpenAI for encounters before launch. The plan enforces spacing, coordinates, counts and portal limits. Legacy short routes are expanded and old gravity-hazard entries are converted internally to jump portals. All movement, spawning, collision detection and combat run locally. No per-frame model calls.
-- `/api/ai-status`: reports only whether the server credential is configured.
+## OpenAI and local fallbacks
 
-When a key is absent or a model call fails, the game offers an explicitly labeled seeded practice stage and a local outline-to-mesh builder. These fallbacks do not claim to use live AI. Sketches/custom ships live in the current browser session only. Site access is controlled through its sharing panel; preserve the current audience and collaborator grants during publication. The lightweight per-isolate request limit is not a substitute for public-service abuse controls.
+OpenAI remains optional and is not configured for this Site. No key from another project is used. `/api/ai-status` reports only whether a server credential exists; this does not prove generation works. `/api/ship` requests a constrained mirrored nine-section hull; `/api/mission` requests a prelaunch plan. The local stage generator retains bounded coordinates and the interactive object roster. No in-flight AI director is claimed.
 
-## Source and assets
+Missing credentials or failed requests leave seeded practice missions and the local outline-to-mesh builder available with explicit offline labels. Sketch hulls retain their baseline gameplay stats; unrestricted geometry and functional ship-design tradeoffs are future work.
 
-The GitHub `origin` is preserved. On this dedicated `yerzhan/space-race` branch, `.openai/hosting.json` identifies Yerzhan's independent private Site (`appgprj_6aa5346ba83c8191b546394c9e32a84e`), explicitly authorized by the owner. Reuse this Site for future updates. The shared `main` branch retains Hadrien's original deployment configuration; do not merge this branch's hosting identity into `main`.
+For live AI, use the supported OpenAI Developers secure key workflow and set `OPENAI_API_KEY` as a server-side Site secret. Never put keys in chat, source, a frontend variable, or `.openai/hosting.json`. Verify an actual model response before calling AI connected.
 
-Sites uses a separate source repository for publication. Keep GitHub as `origin` and the returned Sites source URL as a separate remote. After integrating upstream gameplay updates with normal Git operations, retain this branch's Site identity, build and verify, commit and push to `origin/yerzhan/space-race`, and push the identical commit to the Sites source branch. Save the archive built from that exact revision, then deploy privately and confirm completion. Never force-push shared history or create another Site for this checkout.
+## Source and deployment
 
-Preset ships and three asteroid variants are authored through reproducible Blender scripts, exported as GLB, and rendered in the hangar and flight. Custom sketched ships remain browser-generated meshes. The jump portal, exhaust plumes and hyperspace star streaks are real-time Three.js effects. The space panorama, destination-planet albedo and asteroid albedo textures were generated with OpenAI image generation. No external text-to-3D provider is required.
+GitHub origin remains `https://github.com/AI-preneurs-Hackathon-projects/space-race.git`. This track uses `yerzhan/space-race`. The hosting manifest identifies Yerzhan's private Site `appgprj_6aa5346ba83c8191b546394c9e32a84e`; reuse it for future updates. Hadrien's hosting identity on shared `main` is unchanged.
 
-Editable sources, Blender preview renders, asset counts and the exact reproduction command are documented in [assets/blender/README.md](assets/blender/README.md). Runtime models live in `public/models`; the portable generator is `scripts/generate-models.py`.
-
-Official API references: [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [vision inputs](https://developers.openai.com/api/docs/guides/images-vision).
-
-## Longer route and jump portals
-
-The route covers 4,350 game distance units (displayed as km), requiring 150 active seconds at normal speed. Encounter spawn coordinates follow course progress, while steering, shooting cooldowns and damage immunity use elapsed real time. Each local stage has 20–28 seeded encounter waves and two optional offset portals, with a quiet final approach. Every launch and retry changes both portal positions; pause/resume keeps the current plan fixed.
-
-Crossing a portal opening consumes that gate once and engages the jump drive: a smooth one-second ramp from 1× to 2.2×, five seconds at 2.2×, then a smooth two-second return to 1×. Each complete jump saves 7.8 seconds relative to that ship’s cruise-only time. Two jumps normally finish the base route in about 134.4 seconds; maximum cruise upgrades make that about 109.4 seconds. A missed gate causes no damage or gravity pull. Entry clears imminent threats from the forward corridor. Encounters spawned during a jump appear farther ahead for at least five seconds of reaction time at peak speed, including earned cruise bonuses; pirates cannot acquire a firing lock during the jump. Steering and player cannons continue to work normally. Progress, scenery movement, portal effects and destination approach all use the same travel distance.
-
-Encounter waves preserve their arrival order and minimum course spacing across a boost's return to cruise. Each flight keeps the route selected at launch, so a delayed AI-planning response cannot reset an active delivery.
-
-The renderer uses physically based material lighting, environment reflections, hangar shadows, restrained bloom, engine plumes and stretched 3D star trails with a bounded field-of-view transition. It caps pixel density and uses fewer distant rocks/stars on smaller displays.
-
-See [TODO.md](TODO.md) for the user's deferred sketch-designer issue and live AI setup. Both remain deferred during this stage and environment update.
-
-## Stages and upgrades
-
-Each completed delivery is one stage. Numbering can continue indefinitely; difficulty increases through stage 9 and then stays bounded. There are no internal checkpoints, segment transitions, currencies or accounts. Session progress stays in memory until the page reloads or closes; returning to the hangar or changing vessels preserves it.
-
-- Hull reward: +15 real maximum/starting armor, up to five selections (+75). Cargo still starts at 100 and remains vulnerable.
-- Cruise reward: +5% of base forward speed, up to four selections (+20%). Maximum cruise covers the same distance in 125 seconds without portals. Steering, firing cooldowns and immunity retain their real-time clocks.
-- Earn exactly one reward choice per cleared stage. Capped choices are disabled; when both are capped, continue without an additional reward. Attempt IDs and synchronous state transitions prevent duplicate-click and stale-completion rewards.
-- Failure earns no reward and retries the current stage with fully repaired hull, replenished cargo and existing upgrades. Fleet base objects are never mutated; the same earned bonus applies once to any selected preset or local sketch hull.
-
-Later stages increase gate frequency, formation density and moving pirate pressure. Rock curtains leave physical openings narrowing from 5.5 to 4.5 units; consecutive lane targets change by at most 5 horizontal and 3 vertical units, reachable by Atlas. Wave arrival spacing also accounts for maximum boosted cruise speed. Pirates progress to paired moving attackers, modest predictive aim and two-shot volleys, with at least 1.4 seconds of projectile reaction time at emission. Health inflation is not used for enemies. The final approach suppresses any delayed wave that would arrive after course coordinate 138.
-
-The bounded generator is deterministic for a seed, stage and attempt. Portal centers are at x = ±4.6–6.2 and y = ±2.8, preventing automatic center entry. Their acceptance radius narrows modestly with difficulty, remains visible through matching portal geometry, and requires reachable alignment. Consecutive attempts move each portal by more than 3 units. With a configured AI endpoint, its encounter-kind plan is adapted through these same local stage and safety rules; it never replaces a launched mission.
-
-## Planet and distant background
-
-The destination is a textured 3D sphere with surface relief, a separately lit day/night boundary, procedural cloud cover and atmospheric scattering-style rim shading. Its world radius is fixed. Its z position is `-(720 + remainingCourse * 29)`, so normal flight, cruise upgrades and portal travel all advance the same perspective approach. The planet grows smoothly over the delivery, resets to its distant position on a new attempt, and stays offset from the main obstacle corridor. A sharper, restrained static space panorama keeps the central flight path dark and readable. Asset prompts and inspection details are in `assets/background/`.
-
-`tests/stages.spec.ts` covers deterministic variation, retry/reward guards, capped stats, physical cruise timing, geometric lane clearance, multiple simulated stages, safe portal alignment/projectile lead, perspective growth, and a real browser delivery followed by mobile upgrade and retry flows. Browser-only flight telemetry is emitted in development for read-only test steering; it is removed from the production build.
+Fetch and integrate teammate updates through normal Git operations, preserving this track's hosting identity. Commit the source, push to the dedicated GitHub branch when integration access permits, and push the exact commit to the separate Sites source repository. Save the build archive with that complete source SHA, deploy privately, and confirm terminal success. Never force-push shared history or register another Site for an update.

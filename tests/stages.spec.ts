@@ -1,7 +1,8 @@
+import {createFlight} from './support';
 import {test,expect} from '@playwright/test';
 import {FLEET,practiceMission,type Mission} from '../lib/game/types';
 import {newCampaign,beginAttempt,finishAttempt,chooseUpgrade,effectiveHull,stageMission,difficulty,leaveFlight} from '../lib/game/progression';
-import {createFlight,stepFlight,type Input} from '../lib/game/simulation';
+import {stepFlight,type Input} from '../lib/game/simulation';
 import {planetPosition,PLANET_RADIUS} from '../lib/game/space-environment';
 const idle={x:0,y:0,fire:false};
 function pilot(state:ReturnType<typeof createFlight>,mission:Mission):Input{
@@ -27,7 +28,7 @@ test('rewards are once per clear, capped, preserved across loss and independent 
  const run=beginAttempt(c)!,lost=finishAttempt(run.campaign,run.campaign.attempt,'lost'),retry=beginAttempt(lost)!;expect(retry.campaign.stage).toBe(c.stage);expect(retry.campaign.hullUpgrades).toBe(5);expect(createFlight(effectiveHull(FLEET[0],retry.campaign)).cargo).toBe(100);expect(JSON.stringify(FLEET)).toBe(original);expect(leaveFlight(retry.campaign).status).toBe('ready');
 });
 test('cruise upgrades move the real course faster; boost and planet approach agree',()=>{
- for(const speed of [1,1.2]){const hull={...FLEET[0],cruise:speed},s=createFlight(hull),m={...practiceMission(),events:[]};while(s.status==='flying')stepFlight(s,idle,hull,m,.05);expect(s.time).toBeCloseTo(150/speed,0);expect(s.speed).toBe(speed);}
+ for(const speed of [1,1.2]){const hull={...FLEET[0],cruise:speed},s=createFlight(hull),m={...practiceMission(),events:[]};while(s.status==='flying')stepFlight(s,idle,hull,m,.05);expect(s.time).toBeCloseTo(150/speed,0);expect(s.speed).toBeCloseTo(speed,5);}
  const a=createFlight(FLEET[0]),b=createFlight({...FLEET[0],cruise:1.2});const m={...practiceMission(),events:[]};for(let i=0;i<100;i++){stepFlight(a,{x:.1,y:.1,fire:true},FLEET[0],m,.05);stepFlight(b,{x:.1,y:.1,fire:true},{...FLEET[0],cruise:1.2},m,.05);}expect(b.progress/a.progress).toBeCloseTo(1.2);expect(a.x).toBeCloseTo(b.x);expect(a.shots).toBe(b.shots);
  const angular=(p:number)=>{const v=planetPosition(p);return Math.atan(PLANET_RADIUS/Math.hypot(v.x,v.y,v.z));};expect(angular(150)).toBeGreaterThan(angular(0)*5);for(let p=1;p<150;p++)expect(angular(p)).toBeGreaterThan(angular(p-1));expect(planetPosition(b.progress).z).toBeGreaterThan(planetPosition(a.progress).z);
 });
