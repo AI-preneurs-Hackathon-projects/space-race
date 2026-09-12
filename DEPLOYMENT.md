@@ -5,7 +5,7 @@ Prepared September 12, 2026. The freshly fetched GitHub `main` still resolves to
 - Dedicated checkout/branch: `yerzhan/space-race`.
 - Private Site: `appgprj_6aa5346ba83c8191b546394c9e32a84e`.
 - URL: https://space-race-cargo-run.yerzhan452067.chatgpt.site
-- Selected account ownership was confirmed. Existing owner-only audience is preserved.
+- Selected account ownership was confirmed. A publication-time access check found a restricted custom audience with the owner and two invited external viewers (policy revision 2). That current audience is preserved; it requires the standard deployment operation rather than owner-only deployment.
 - Shared `main`, original GitHub origin, Hadrien's deployment configuration and original assets are unchanged.
 
 ## Delivered scope
@@ -25,6 +25,6 @@ Rapier rigid bodies; inertia and counter-thrust; mass-dependent collision respon
 
 ## Source publishing
 
-The exact deployed revision is recorded by the Site's saved version and Git source branch. GitHub account repository permissions and the connected integration's write access are separate. The earlier GitHub write attempt was rejected with `Resource not accessible by integration`; if that restriction remains, the dedicated GitHub branch cannot be uploaded until the integration is granted repository write access. Site source saving and publishing are independent and remain available.
+The exact deployed revision is recorded by the Site's saved version and Git source branch. GitHub account repository permissions and the connected integration's write access are separate. The earlier connected GitHub write attempt was rejected with `Resource not accessible by integration`; the ordinary Git push of this physics update also failed because no GitHub credentials were available. The dedicated GitHub branch still needs an authenticated push once repository write access is connected. Site source saving and publishing are independent and remain available.
 
 Future updates reuse this Site and URL, preserve GitHub history, and deploy an archive built from the exact saved source revision. No credentials belong in these files. The user authorized this physics iteration after the baseline playtest; spaceship customization and meaningful in-flight AI remain subsequent product directions.
