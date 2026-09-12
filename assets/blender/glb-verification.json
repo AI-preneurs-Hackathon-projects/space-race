@@ -1,0 +1,94 @@
+{
+  "kestrel": {
+    "triangles": 12366,
+    "draw_primitives": 10,
+    "materials": 10,
+    "embedded_images": 0,
+    "exhaust_nodes_glb_xyz": {
+      "exhaust_0": [
+        -1.25,
+        -0.009999999776482582,
+        2.515000104904175
+      ],
+      "exhaust_1": [
+        1.25,
+        -0.009999999776482582,
+        2.515000104904175
+      ]
+    },
+    "bytes": 749648,
+    "status": "PASS"
+  },
+  "wraith": {
+    "triangles": 12322,
+    "draw_primitives": 10,
+    "materials": 10,
+    "embedded_images": 0,
+    "exhaust_nodes_glb_xyz": {
+      "exhaust_0": [
+        -0.8199999928474426,
+        -0.012000000104308128,
+        2.625
+      ],
+      "exhaust_1": [
+        0.8199999928474426,
+        -0.012000000104308128,
+        2.625
+      ]
+    },
+    "bytes": 747144,
+    "status": "PASS"
+  },
+  "atlas": {
+    "triangles": 21198,
+    "draw_primitives": 10,
+    "materials": 10,
+    "embedded_images": 0,
+    "exhaust_nodes_glb_xyz": {
+      "exhaust_0": [
+        -0.6800000071525574,
+        -0.11500000208616257,
+        3.005000114440918
+      ],
+      "exhaust_1": [
+        0,
+        -0.11500000208616257,
+        3.005000114440918
+      ],
+      "exhaust_2": [
+        0.6800000071525574,
+        -0.11500000208616257,
+        3.005000114440918
+      ]
+    },
+    "bytes": 1340272,
+    "status": "PASS"
+  },
+  "asteroid-1": {
+    "triangles": 9830,
+    "draw_primitives": 1,
+    "materials": 1,
+    "embedded_images": 1,
+    "exhaust_nodes_glb_xyz": {},
+    "bytes": 795452,
+    "status": "PASS"
+  },
+  "asteroid-2": {
+    "triangles": 9830,
+    "draw_primitives": 1,
+    "materials": 1,
+    "embedded_images": 1,
+    "exhaust_nodes_glb_xyz": {},
+    "bytes": 794640,
+    "status": "PASS"
+  },
+  "asteroid-3": {
+    "triangles": 9830,
+    "draw_primitives": 1,
+    "materials": 1,
+    "embedded_images": 1,
+    "exhaust_nodes_glb_xyz": {},
+    "bytes": 795600,
+    "status": "PASS"
+  }
+}

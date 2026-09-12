@@ -1,0 +1,7 @@
+Use case: photorealistic-natural
+Asset type: seamless asteroid surface albedo texture for wrapping on real 3D asteroid meshes with separate displacement and bump shading in a game.
+Primary request: one square 1024x1024 original tileable texture, a flat orthographic scan of realistic dark carbonaceous asteroid rock.
+Composition: flat top-down surface filling the entire square edge to edge. Seamless matching tile edges on all four sides, non-repeating natural distribution within the tile.
+Materials/textures: desaturated gray-brown mineral grains, small pits and impact craters, fractured rocky regolith at several scales, granular dust mixed with irregular embedded rock fragments.
+Lighting: neutral, evenly lit albedo, no directional shadows or baked lighting, no vignette.
+Constraints: surface texture only; no sphere, no landscape scene, no horizon, no background, no stars, no labels, no text, no UI, no border or watermark.

@@ -1,13 +1,13 @@
 # Space Race · Cargo Run
 
-A playable 3D browser game built with React, Three.js and a Cloudflare Workers-compatible Vinext server. Deliver medical supplies from Port Meridian to Kepler Outpost in a 75-second continuous-forward flight.
+A playable 3D browser game built with React, Three.js and a Cloudflare Workers-compatible Vinext server. Deliver medical supplies from Port Meridian to Kepler Outpost in a 150-second continuous-forward route at cruise speed.
 
 ## Play
 
 - Choose Kestrel (balanced), Wraith (agile), Atlas (armored), or draw an optional custom ship.
 - WASD / arrows: steer left, right, up and down. Space: fire pulse cannons. Escape: pause.
 - On touchscreens, drag the steering pad and hold FIRE.
-- Avoid asteroids and black-hole gravity wells. Pirates fire at your ship. Impacts damage hull and cargo.
+- Avoid asteroids and pirate fire. Impacts damage hull and cargo. Cyan jump portals are safe: fly through the opening for a brief hyperspace boost.
 - Reach the destination with hull and cargo remaining. Pause, return to hangar, or restart after either result.
 
 ## Local development
@@ -26,15 +26,29 @@ Live AI is implemented but requires a server-side OpenAI API key. Use the OpenAI
 For local development, copy `.env.example` to ignored `.env` and configure the key there using a secure credential workflow. Both endpoints use the OpenAI Responses API with strict JSON schema, no response storage, input size limits, timeouts, and validated geometry/gameplay bounds. The API key is accessed only by server routes.
 
 - `/api/ship`: sends the top-down sketch image to OpenAI vision, obtains nine half-widths, thickness and engine count, then validates the blueprint. The same real extruded 3D mesh appears in preview and in flight. This is a constrained, mirrored stylized hull, not unrestricted mesh reconstruction.
-- `/api/mission`: asks OpenAI for encounters before launch. The plan enforces spacing, coordinates, counts and black-hole limits. All movement, spawning, collision detection and combat run locally. No per-frame model calls.
+- `/api/mission`: asks OpenAI for encounters before launch. The plan enforces spacing, coordinates, counts and portal limits. Legacy short routes are expanded and old gravity-hazard entries are converted internally to jump portals. All movement, spawning, collision detection and combat run locally. No per-frame model calls.
 - `/api/ai-status`: reports only whether the server credential is configured.
 
-When a key is absent or a model call fails, the game offers an explicitly labeled fixed practice mission and a local outline-to-mesh builder. These fallbacks do not claim to use live AI. Sketches/custom ships live in the current browser session only. The Site is owner-private by default; the lightweight per-isolate request limit is not a substitute for public-service abuse controls.
+When a key is absent or a model call fails, the game offers an explicitly labeled fixed practice mission and a local outline-to-mesh builder. These fallbacks do not claim to use live AI. Sketches/custom ships live in the current browser session only. Site access is controlled through its sharing panel; preserve the current audience and collaborator grants during publication. The lightweight per-isolate request limit is not a substitute for public-service abuse controls.
 
 ## Source and assets
 
 The GitHub `origin` is preserved. `.openai/hosting.json` identifies the existing ChatGPT Site and must be reused for updates. Sites' separate source repository is used for deployment. Never create a second Site for this checkout.
 
-Ships, asteroids, planets and gravity wells are genuine Three.js geometry authored in Codex. The nebula asset was generated with OpenAI image generation. No external text-to-3D provider is required.
+Preset ships and three asteroid variants are authored through reproducible Blender scripts, exported as GLB, and rendered in the hangar and flight. Custom sketched ships remain browser-generated meshes. The jump portal, exhaust plumes and hyperspace star streaks are real-time Three.js effects. The nebula and asteroid albedo textures were generated with OpenAI image generation. No external text-to-3D provider is required.
+
+Editable sources, Blender preview renders, asset counts and the exact reproduction command are documented in [assets/blender/README.md](assets/blender/README.md). Runtime models live in `public/models`; the portable generator is `scripts/generate-models.py`.
 
 Official API references: [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [vision inputs](https://developers.openai.com/api/docs/guides/images-vision).
+
+## Longer route and jump portals
+
+The route covers 4,350 game distance units (displayed as km), requiring 150 active seconds at normal speed. Encounter spawn coordinates follow course progress, while steering, shooting cooldowns and damage immunity use elapsed real time. The practice route contains 30 paced encounters, with optional centered portals near course coordinates 22 and 86, and a quiet final approach.
+
+Crossing a portal opening consumes that gate once and engages the jump drive: a smooth one-second ramp from 1× to 2.2×, five seconds at 2.2×, then a smooth two-second return to 1×. Each complete jump saves 7.8 seconds; taking both normally finishes in about 134.4 seconds. A missed gate causes no damage or gravity pull. Entry clears imminent threats from the forward corridor. Encounters spawned during a jump appear farther ahead for at least five seconds of reaction time at peak speed; pirates cannot acquire a firing lock during the jump. Steering and player cannons continue to work normally. Progress, scenery movement, portal effects and destination approach all use the same travel distance.
+
+Encounter waves preserve their arrival order and minimum course spacing across a boost's return to cruise. Each flight keeps the route selected at launch, so a delayed AI-planning response cannot reset an active delivery.
+
+The renderer uses physically based material lighting, environment reflections, hangar shadows, restrained bloom, engine plumes and stretched 3D star trails with a bounded field-of-view transition. It caps pixel density and uses fewer distant rocks/stars on smaller displays.
+
+See [TODO.md](TODO.md) for the user's deferred sketch-designer issue and live AI setup. Neither is part of this visual/portal update.

@@ -1,0 +1,180 @@
+{
+  "coordinate_system": "GLB: nose -Z, up +Y, right +X. Blender: nose +Y, up +Z.",
+  "assets": {
+    "kestrel": {
+      "triangles": 12366,
+      "material_meshes": 10,
+      "triangles_by_material": {
+        "hull_secondary": 1892,
+        "hull_armor": 1028,
+        "structural": 2224,
+        "accent": 988,
+        "canopy": 66,
+        "cockpit_frame": 1104,
+        "engine_nozzle": 664,
+        "gunmetal": 3176,
+        "engine_core": 688,
+        "vent": 536
+      },
+      "blender_bounds_min": [
+        -2.198594808578491,
+        -2.490000009536743,
+        -0.41999998688697815
+      ],
+      "blender_bounds_max": [
+        2.198594808578491,
+        2.75,
+        0.8984692692756653
+      ],
+      "glb_dimensions_xyz": [
+        4.397189617156982,
+        1.3184692561626434,
+        5.240000009536743
+      ],
+      "file_bytes": 749648,
+      "exhaust_markers": [
+        "exhaust_0",
+        "exhaust_1"
+      ]
+    },
+    "wraith": {
+      "triangles": 12322,
+      "material_meshes": 10,
+      "triangles_by_material": {
+        "hull_secondary": 1912,
+        "hull_armor": 1108,
+        "structural": 2280,
+        "accent": 1068,
+        "canopy": 66,
+        "cockpit_frame": 1104,
+        "engine_nozzle": 696,
+        "gunmetal": 2920,
+        "engine_core": 632,
+        "vent": 536
+      },
+      "blender_bounds_min": [
+        -2.2780089378356934,
+        -2.5999999046325684,
+        -0.3149999976158142
+      ],
+      "blender_bounds_max": [
+        2.2780089378356934,
+        3.1600000858306885,
+        0.6984692811965942
+      ],
+      "glb_dimensions_xyz": [
+        4.556017875671387,
+        1.0134692788124084,
+        5.759999990463257
+      ],
+      "file_bytes": 747144,
+      "exhaust_markers": [
+        "exhaust_0",
+        "exhaust_1"
+      ]
+    },
+    "atlas": {
+      "triangles": 21198,
+      "material_meshes": 10,
+      "triangles_by_material": {
+        "structural": 5580,
+        "hull_armor": 2364,
+        "hull_secondary": 1348,
+        "accent": 1156,
+        "gunmetal": 6528,
+        "vent": 1092,
+        "canopy": 66,
+        "cockpit_frame": 1104,
+        "engine_nozzle": 1012,
+        "engine_core": 948
+      },
+      "blender_bounds_min": [
+        -2.140000104904175,
+        -2.9800000190734863,
+        -0.4899999797344208
+      ],
+      "blender_bounds_max": [
+        2.140000104904175,
+        2.5999999046325684,
+        0.9984692931175232
+      ],
+      "glb_dimensions_xyz": [
+        4.28000020980835,
+        1.488469272851944,
+        5.579999923706055
+      ],
+      "file_bytes": 1340272,
+      "exhaust_markers": [
+        "exhaust_0",
+        "exhaust_1",
+        "exhaust_2"
+      ]
+    },
+    "asteroid-1": {
+      "triangles": 9830,
+      "material_meshes": 1,
+      "max_radius": 0.9999999982537702,
+      "blender_bounds_min": [
+        -0.9416354894638062,
+        -0.852946400642395,
+        -0.7920829057693481
+      ],
+      "blender_bounds_max": [
+        0.9639150500297546,
+        0.8425818681716919,
+        0.7531498670578003
+      ],
+      "glb_dimensions_xyz": [
+        1.9055505394935608,
+        1.5452327728271484,
+        1.695528268814087
+      ],
+      "file_bytes": 795452,
+      "texture": "1024\u00d71024 packed JPEG albedo with exported vertex colors"
+    },
+    "asteroid-2": {
+      "triangles": 9830,
+      "material_meshes": 1,
+      "max_radius": 1.0000000331783663,
+      "blender_bounds_min": [
+        -0.9912745952606201,
+        -0.6624656915664673,
+        -0.4328451454639435
+      ],
+      "blender_bounds_max": [
+        0.9459145665168762,
+        0.6473899483680725,
+        0.5915888547897339
+      ],
+      "glb_dimensions_xyz": [
+        1.9371891617774963,
+        1.0244340002536774,
+        1.3098556399345398
+      ],
+      "file_bytes": 794640,
+      "texture": "1024\u00d71024 packed JPEG albedo with exported vertex colors"
+    },
+    "asteroid-3": {
+      "triangles": 9830,
+      "material_meshes": 1,
+      "max_radius": 1.000000009778887,
+      "blender_bounds_min": [
+        -0.6805446743965149,
+        -0.752255916595459,
+        -0.9517425298690796
+      ],
+      "blender_bounds_max": [
+        0.6962458491325378,
+        0.7538653612136841,
+        0.9739505052566528
+      ],
+      "glb_dimensions_xyz": [
+        1.3767905235290527,
+        1.9256930351257324,
+        1.506121277809143
+      ],
+      "file_bytes": 795600,
+      "texture": "1024\u00d71024 packed JPEG albedo with exported vertex colors"
+    }
+  }
+}

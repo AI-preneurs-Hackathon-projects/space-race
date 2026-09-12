@@ -4,17 +4,26 @@ export const FLEET: Hull[] = [
   { id:"wraith",name:"Wraith",role:"Light interceptor",color:"#7be4de",widths:[.06,.2,.35,.46,.65,1.95,2.15,.95,.4],thickness:.28,engines:2,handling:1.3,armor:80,origin:"fleet" },
   { id:"atlas",name:"Atlas",role:"Armored transporter",color:"#c3a4ef",widths:[.35,.65,.88,1.25,1.9,1.95,1.95,1.5,1.25],thickness:.68,engines:3,handling:.82,armor:125,origin:"fleet" },
 ];
-export type EncounterKind = "asteroid" | "pirate" | "blackhole";
+export type EncounterKind = "asteroid" | "pirate" | "portal";
+/** at is a route-progress coordinate in normal-speed course-seconds, not wall time. */
 export type Encounter = { at:number; kind:EncounterKind; x:number; y:number; count:number };
 export type Mission = { title:string; events:Encounter[]; source:"openai"|"practice"; note:string };
-export const DURATION=75;
-export function practiceMission():Mission {
-  return { title:"The Kepler passage",source:"practice",note:"Practice route · AI director offline",events:Array.from({length:19},(_,i)=>({
-    at:4+i*3.2,kind: i===7||i===15 ? "blackhole" : i%3===2 ? "pirate" : "asteroid",
-    x:Math.sin(i*2.4)*6.5,y:Math.cos(i*1.8)*3.2,count:i%4===0?2:1,
-  })) };
-}
+export const DURATION = 150;
+export const CRUISE_SPEED = 29;
+export const WARP_MAX_SPEED = 2.2;
+export const WARP_DURATION = 8;
+export const MAX_PORTALS = 2;
+export const ARRIVAL_START = DURATION - 12;
 export const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
+export function practiceMission():Mission {
+  const events:Encounter[]=[];
+  const times=[4,8,12,16,22,30,34,38,42,47,51,55,59,64,68,72,76,80,86,94,98,102,106,110,114,118,122,126,130,134];
+  for(let i=0;i<times.length;i++){
+    const portal=times[i]===22||times[i]===86;
+    events.push({at:times[i],kind:portal?"portal":i%4===1||i%5===3?"pirate":"asteroid",x:portal?0:Math.sin(i*2.4)*6.2,y:portal?0:Math.cos(i*1.8)*3.1,count:portal?1:i%4===2?2:1});
+  }
+  return {title:"The Kepler passage",source:"practice",note:"Practice route · local encounters",events};
+}
 export function validateHull(value:unknown):Hull {
   const v=value as Record<string,unknown>;
   if(!v || !Array.isArray(v.widths)||v.widths.length!==9 || !v.widths.every(n=>typeof n==="number"&&Number.isFinite(n)) || typeof v.thickness!=="number"||!Number.isFinite(v.thickness)||typeof v.engines!=="number"||!Number.isFinite(v.engines)) throw new Error("The ship design was incomplete. Try another outline.");
@@ -22,12 +31,23 @@ export function validateHull(value:unknown):Hull {
 }
 export function validateMission(value:unknown):Mission {
   const v=value as Record<string,unknown>;
-  if(!v||!Array.isArray(v.events)||v.events.length<10||v.events.length>20)throw new Error("The director returned an incomplete route.");
+  if(!v||!Array.isArray(v.events)||v.events.length<10||v.events.length>40)throw new Error("The director returned an incomplete route.");
+  // Accept saved first-version plans internally and expand them to the longer route.
+  const legacy=v.events.some(e=>e?.kind==="blackhole") || (v.events.length<=20&&v.events.every(e=>e?.at<=64));
   const events:Encounter[]=v.events.map(e=>{
-    if(!e||!["asteroid","pirate","blackhole"].includes(e.kind)||![e.at,e.x,e.y,e.count].every(Number.isFinite))throw new Error("Invalid encounter plan.");
-    return {at:clamp(e.at,4,64),kind:e.kind,x:clamp(e.x,-7,7),y:clamp(e.y,-4,4),count:e.kind==="blackhole"?1:Math.round(clamp(e.count,1,2))};
+    if(!e||!["asteroid","pirate","portal","blackhole"].includes(e.kind)||![e.at,e.x,e.y,e.count].every(Number.isFinite))throw new Error("Invalid encounter plan.");
+    const kind=e.kind==="blackhole"?"portal":e.kind;
+    return {at:clamp(e.at*(legacy?2:1),4,134),kind,x:clamp(e.x,-7,7),y:clamp(e.y,-4,4),count:kind==="portal"?1:Math.round(clamp(e.count,1,2))};
   }).sort((a,b)=>a.at-b.at);
-  let last=.5,holes=0; const safe=events.flatMap(e=>{if(e.kind==="blackhole"&&++holes>2)e.kind="asteroid";e.at=Math.max(e.at,last+3);if(e.at>64)return [];last=e.at;return [e];});
+  let last=0,portals=0,lastPortal=-100;
+  const safe=events.flatMap(e=>{
+    e.at=Math.max(e.at,last+3.5);
+    if(e.kind==="portal"){
+      if(portals>=MAX_PORTALS||e.at>116||e.at-lastPortal<30)e.kind="asteroid";
+      else {portals++;lastPortal=e.at;e.x=clamp(e.x,-4,4);e.y=clamp(e.y,-2,2);}
+    }
+    if(e.at>134)return [];last=e.at;return [e];
+  });
   if(safe.length<10)throw new Error("The route did not leave enough reaction time.");
   return {title:typeof v.title==="string"?v.title.slice(0,45):"The Kepler passage",events:safe,source:"openai",note:"OpenAI director · route ready"};
 }

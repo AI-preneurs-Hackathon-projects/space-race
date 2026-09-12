@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
-import {FLEET,practiceMission,validateHull,validateMission} from '../lib/game/types';
-import {createFlight,stepFlight,damage,type Entity} from '../lib/game/simulation';
+import {FLEET,DURATION,practiceMission,validateHull,validateMission} from '../lib/game/types';
+import {createFlight,stepFlight,damage,warpSpeed,courseStep,type Entity} from '../lib/game/simulation';
 import {buildShip,disposeObject} from '../lib/game/meshes';
 import * as THREE from 'three';
 const idle={x:0,y:0,fire:false};
@@ -10,11 +10,11 @@ test('flight physics, combat, cargo damage, loss, delivery and reset',()=>{
  expect(s.x).toBeGreaterThan(8);expect(s.y).toBe(5);expect(s.shots).toBeGreaterThan(4);
  damage(s,26,16);expect(s.hull).toBe(74);expect(s.cargo).toBe(84);damage(s,26,16);expect(s.hull).toBe(74);
  s.immune=0;damage(s,100,100);expect(s.status).toBe('lost');expect(s.cargo).toBe(0);
- const won=createFlight(hull);const empty={...m,events:[]};for(let i=0;i<1501;i++)stepFlight(won,idle,hull,empty,.05);expect(won.status).toBe('delivered');expect(won.time).toBe(75);expect(createFlight(hull).time).toBe(0);
+ const won=createFlight(hull);const empty={...m,events:[]};for(let i=0;i<3001;i++)stepFlight(won,idle,hull,empty,.05);expect(won.status).toBe('delivered');expect(won.time).toBeCloseTo(DURATION,0);expect(createFlight(hull).time).toBe(0);
  const combat=createFlight(hull);const pirate:Entity={id:1,kind:'pirate',x:0,y:0,z:-25,vx:0,vy:0,radius:1.3,hp:3,age:0,fire:99};combat.entities=[pirate];combat.serial=2;
  for(let i=0;i<20;i++)stepFlight(combat,{...idle,fire:true},hull,empty,.025);expect(combat.kills).toBe(1);
  const impact=createFlight(hull);impact.entities=[{...pirate,kind:'asteroid',z:-1,hp:2}];stepFlight(impact,idle,hull,empty,.05);expect(impact.hull).toBeLessThan(100);expect(impact.cargo).toBeLessThan(100);
- const gravity=createFlight(hull);gravity.entities=[{...pirate,kind:'blackhole',x:5,z:-15}];stepFlight(gravity,idle,hull,empty,.05);expect(gravity.x).toBeGreaterThan(0);
+
 });
 test('AI output constraints and real geometry',()=>{
  expect(()=>validateHull({widths:[1]})).toThrow();expect(()=>validateMission({events:[]})).toThrow();
@@ -24,7 +24,7 @@ test('AI output constraints and real geometry',()=>{
 });
 test('hangar, drawing, ship selection, launch, pause and restart',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('/');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeVisible();await expect(page.locator('canvas')).toBeVisible();await page.screenshot({path:'outputs/hangar-desktop.png',fullPage:true});
+ await page.goto('/');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeVisible();await expect(page.locator('canvas')).toHaveAttribute('data-model-source','blender');await page.screenshot({path:'outputs/hangar-desktop.png',fullPage:true});
  await page.getByRole('button',{name:/02 Wraith/}).click();await expect(page.locator('.ship-name h2')).toHaveText('Wraith');await page.getByRole('button',{name:/03 Atlas/}).click();await expect(page.locator('.ship-name h2')).toHaveText('Atlas');
  await page.getByRole('button',{name:/Build your own/}).click();await expect(page.getByRole('dialog')).toBeVisible();await expect(page.getByRole('button',{name:'Build local 3D preview'})).toBeDisabled();
  const canvas=page.getByLabel('Draw a top-down spaceship outline'),b=await canvas.boundingBox();if(!b)throw Error('No drawing surface');
@@ -44,25 +44,85 @@ test('mobile layout and API offline/error handling',async({page,request})=>{
  const crossOrigin=await request.post('/api/mission',{data:{},headers:{Origin:'https://example.com'}});expect(crossOrigin.status()).toBe(403);
  await page.getByRole('button',{name:'Launch delivery'}).click();await expect(page.getByRole('button',{name:'FIRE',exact:true})).toBeVisible();await page.screenshot({path:'outputs/flight-mobile.png'});
 });
-test('full 75-second run reaches its result and can restart',async({page})=>{
+test('failed delivery reaches its result and can restart',async({page})=>{
  await page.goto('/');await page.getByRole('button',{name:'Launch delivery'}).click();
- await expect(page.getByRole('button',{name:'Run it again'})).toBeVisible({timeout:90000});
+ await expect(page.getByRole('button',{name:'Run it again'})).toBeVisible({timeout:180000});
  await page.screenshot({path:'outputs/mission-result.png'});await page.getByRole('button',{name:'Run it again'}).click();await expect(page.getByRole('button',{name:'Pause game'})).toBeVisible();await expect(page.getByRole('button',{name:'Run it again'})).not.toBeVisible();
 });
 
 test('evasive flight can deliver the full practice mission',()=>{
  const hull=FLEET[0],state=createFlight(hull),mission=practiceMission();
- for(let i=0;i<1501;i++){const t=i*.05;const phase=(t-1)%6.8;const action=t<1?{x:0,y:1,fire:true}:phase<2?{x:1,y:0,fire:true}:phase<3.4?{x:0,y:-1,fire:true}:phase<5.4?{x:-1,y:0,fire:true}:{x:0,y:1,fire:true};stepFlight(state,action,hull,mission,.05);}
+ for(let i=0;i<3001;i++){const t=i*.05;const phase=(t-1)%6.8;const action=t<1?{x:0,y:1,fire:true}:phase<2?{x:1,y:0,fire:true}:phase<3.4?{x:0,y:-1,fire:true}:phase<5.4?{x:-1,y:0,fire:true}:{x:0,y:1,fire:true};stepFlight(state,action,hull,mission,.05);}
  console.log('Full route:',state.status,'hull',state.hull,'cargo',state.cargo,'cleared',state.kills);expect(state.status).toBe('delivered');
 });
 test('successful piloted delivery in the browser',async({page})=>{
  await page.goto('/');await page.getByRole('button',{name:'Launch delivery'}).click();await page.keyboard.down('Space');await page.keyboard.down('KeyW');await page.waitForTimeout(1000);await page.keyboard.up('KeyW');
- const end=Date.now()+76500;
+ const end=Date.now()+151500;
  while(Date.now()<end){for(const [key,duration] of [['KeyD',2000],['KeyS',1400],['KeyA',2000],['KeyW',1400]] as const){await page.keyboard.down(key);await page.waitForTimeout(Math.min(duration,Math.max(1,end-Date.now())));await page.keyboard.up(key);if(Date.now()>=end)break;}}
  await page.keyboard.up('Space');await expect(page.getByText('Cargo delivered.',{exact:true})).toBeVisible({timeout:15000});await page.screenshot({path:'outputs/successful-delivery.png'});await page.getByRole('button',{name:'Run it again'}).click();await expect(page.locator('.hud-vitals')).toContainText('100');
 });
 test('AI service failure is visible and leaves practice playable',async({page})=>{
  await page.route('**/api/ai-status',route=>route.fulfill({json:{available:true}}));
  await page.route('**/api/mission',route=>route.fulfill({status:503,json:{error:'OpenAI could not complete this request.'}}));
- await page.goto('/');await expect(page.getByRole('status')).toContainText('Practice route is ready to fly.');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeEnabled();await page.getByRole('button',{name:'Launch delivery'}).click();await expect(page.locator('.route-progress')).toContainText('PRACTICE ROUTE');
+ await page.goto('/');await expect(page.locator('.notice')).toContainText('Practice route is ready to fly.');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeEnabled();await page.getByRole('button',{name:'Launch delivery'}).click();await expect(page.locator('.route-progress')).toContainText('PRACTICE ROUTE');
+});
+
+test('flying through a portal shows hyperspace, pauses safely and returns to cruise',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/');await page.getByRole('button',{name:'Launch delivery'}).click();await page.keyboard.down('Space');
+ await expect(page.locator('.portal-label')).toBeVisible({timeout:30000});
+ await page.waitForTimeout(2000);await page.screenshot({path:'outputs/portal-approach.png'});
+ await expect(page.locator('.warp-status')).toContainText('2.2×',{timeout:12000});
+ await expect(page.locator('.flight-bottom')).toContainText('1/2 JUMPS');await page.screenshot({path:'outputs/hyperspace.png'});
+ await page.keyboard.up('Space');await page.getByRole('button',{name:'Pause game'}).click();await page.waitForTimeout(150);
+ const remaining=await page.locator('.route-progress').innerText();await page.waitForTimeout(600);expect(await page.locator('.route-progress').innerText()).toBe(remaining);
+ await page.getByRole('button',{name:'Resume delivery'}).click();await page.keyboard.down('Space');
+ await expect(page.locator('.warp-status')).toContainText('CRUISE SPEED',{timeout:10000});await expect(page.locator('.warp-status')).toContainText('1.0×');
+ await page.keyboard.up('Space');expect(errors).toEqual([]);
+});
+
+test('portal crossing, smooth boost, safety clearance, miss and reset',()=>{
+ const hull=FLEET[0],empty={...practiceMission(),events:[]},s=createFlight(hull);
+ const portal:Entity={id:1,kind:'portal',x:0,y:0,z:-.5,vx:0,vy:0,radius:4.3,hp:2,age:0,fire:0};
+ s.entities=[portal,{...portal,id:2,kind:'asteroid',z:-10,radius:2}];s.serial=3;
+ stepFlight(s,idle,hull,empty,.05);expect(s.portalsUsed).toBe(1);expect(s.warpAge).toBe(0);expect(s.hull).toBe(100);expect(s.entities).toHaveLength(0);
+ const start=s.progress;for(let i=0;i<20;i++)stepFlight(s,idle,hull,empty,.05);expect(s.speed).toBeCloseTo(2.2,8);
+ for(let i=0;i<100;i++)stepFlight(s,idle,hull,empty,.05);expect(s.speed).toBeCloseTo(2.2,8);
+ for(let i=0;i<40;i++)stepFlight(s,idle,hull,empty,.05);expect(s.speed).toBeCloseTo(1,8);expect(s.progress-start).toBeCloseTo(15.8,6);expect(s.portalsUsed).toBe(1);
+ const miss=createFlight(hull);miss.x=8;miss.entities=[{...portal,hp:2,z:-.5}];stepFlight(miss,idle,hull,empty,.05);expect(miss.portalsUsed).toBe(0);expect(miss.hull).toBe(100);expect(miss.x).toBe(8);
+ const reset=createFlight(hull);expect(reset.warpAge).toBeNull();expect(reset.portalsUsed).toBe(0);expect(reset.progress).toBe(0);expect(reset.speed).toBe(1);
+ for(const dt of [.05,.02,.01]){let progress=0;for(let age=0;age<8-1e-8;age+=dt)progress+=courseStep(age,dt);expect(progress).toBeCloseTo(15.8,6);}
+ expect(warpSpeed(.5)).toBeCloseTo(1.6);expect(warpSpeed(7)).toBeCloseTo(1.6);
+});
+test('boost preserves controls, combat clocks, event order and safe spawn distance',()=>{
+ const hull=FLEET[0],empty={...practiceMission(),events:[]},a=createFlight(hull),b=createFlight(hull);b.warpAge=0;
+ for(let i=0;i<10;i++){const input={x:.2,y:.2,fire:true};stepFlight(a,input,hull,empty,.05);stepFlight(b,input,hull,empty,.05);}
+ expect(a.x).toBeCloseTo(b.x);expect(a.y).toBeCloseTo(b.y);expect(a.shots).toBe(b.shots);expect(b.progress).toBeGreaterThan(a.progress);
+ b.progress=20;b.warpAge=2;b.speed=2.2;const mission={...empty,events:[{at:20,kind:'asteroid' as const,x:5,y:3,count:1},{at:20.1,kind:'pirate' as const,x:-5,y:3,count:1}]};stepFlight(b,idle,hull,mission,.05);expect(b.next).toBe(2);
+ const threats=b.entities.filter(e=>e.kind==='asteroid'||e.kind==='pirate');expect(threats).toHaveLength(2);for(const e of threats)expect(-e.z/(29*2.2)).toBeGreaterThan(4.8);
+ stepFlight(b,idle,hull,mission,.05);expect(b.next).toBe(2);expect(b.entities.filter(e=>e.kind==='asteroid'||e.kind==='pirate')).toHaveLength(2);
+});
+test('two jumps shorten the longer course while preserving arrival and restart',()=>{
+ const hull=FLEET[0],s=createFlight(hull),m={...practiceMission(),events:[{at:22,kind:'portal' as const,x:0,y:0,count:1},{at:86,kind:'portal' as const,x:0,y:0,count:1}]};
+ for(let i=0;i<3100&&s.status==='flying';i++)stepFlight(s,idle,hull,m,.05);
+ expect(s.status).toBe('delivered');expect(s.progress).toBe(150);expect(s.portalsUsed).toBe(2);expect(s.time).toBeGreaterThan(133);expect(s.time).toBeLessThan(136);expect(s.warpAge).toBeNull();expect(s.speed).toBe(1);
+ const legacy={events:Array.from({length:16},(_,i)=>({at:4+i*4,kind:i===4||i===10?'blackhole':'asteroid',x:0,y:0,count:1}))};const updated=validateMission(legacy);expect(updated.events.filter(e=>e.kind==='portal')).toHaveLength(2);expect(updated.events.at(-1)!.at).toBeGreaterThan(120);expect(updated.events.every(e=>e.at<=134)).toBe(true);
+});
+
+test('encounter waves stay ordered and spaced across warp exit',()=>{
+ const hull=FLEET[0],s=createFlight(hull),m={...practiceMission(),events:[{at:22,kind:'portal' as const,x:0,y:0,count:1},...[30,33.5,37,40.5,44,47.5].map(at=>({at,kind:'asteroid' as const,x:8,y:4,count:1}))]};
+ const seen=new Set<number>(),arrivals:{id:number;progress:number}[]=[];
+ for(let i=0;i<1400;i++){stepFlight(s,idle,hull,m,.05);for(const e of s.entities)if(e.kind==='asteroid'&&e.z>=0&&!seen.has(e.id)){seen.add(e.id);arrivals.push({id:e.id,progress:s.progress});}}
+ expect(arrivals).toHaveLength(6);expect(arrivals.map(e=>e.id)).toEqual([...arrivals.map(e=>e.id)].sort((a,b)=>a-b));
+ for(let i=1;i<arrivals.length;i++)expect(arrivals[i].progress-arrivals[i-1].progress).toBeGreaterThan(3.4);
+});
+
+test('a late AI plan cannot replace the mission already in flight',async({page})=>{
+ let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ await page.route('**/api/ai-status',async route=>{await gate;await route.fulfill({json:{available:true}});});
+ await page.route('**/api/mission',route=>route.fulfill({json:{mission:practiceMission()}}));
+ await page.goto('/');await page.getByRole('button',{name:'Launch delivery'}).click();await page.waitForTimeout(4000);
+ const distance=async()=>parseInt((await page.locator('.route-progress').innerText()).match(/(\d+) KM/)![1]);
+ const before=await distance(),planned=page.waitForResponse('**/api/mission');release();await planned;await page.waitForTimeout(1000);
+ await expect(page.locator('.route-progress')).toContainText('PRACTICE ROUTE');expect(await distance()).toBeLessThan(before-20);
 });

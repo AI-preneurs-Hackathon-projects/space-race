@@ -47,3 +47,7 @@ next-env.d.ts
 
 !.env.example
 *.tsbuildinfo
+
+# Blender backup files; keep authored .blend sources.
+*.blend1
+*.blend2
