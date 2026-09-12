@@ -1,0 +1,68 @@
+import {test,expect} from '@playwright/test';
+import {FLEET,practiceMission,validateHull,validateMission} from '../lib/game/types';
+import {createFlight,stepFlight,damage,type Entity} from '../lib/game/simulation';
+import {buildShip,disposeObject} from '../lib/game/meshes';
+import * as THREE from 'three';
+const idle={x:0,y:0,fire:false};
+test('flight physics, combat, cargo damage, loss, delivery and reset',()=>{
+ const hull=FLEET[0],m=practiceMission(),s=createFlight(hull);
+ for(let i=0;i<20;i++)stepFlight(s,{x:1,y:1,fire:true},hull,m,.05);
+ expect(s.x).toBeGreaterThan(8);expect(s.y).toBe(5);expect(s.shots).toBeGreaterThan(4);
+ damage(s,26,16);expect(s.hull).toBe(74);expect(s.cargo).toBe(84);damage(s,26,16);expect(s.hull).toBe(74);
+ s.immune=0;damage(s,100,100);expect(s.status).toBe('lost');expect(s.cargo).toBe(0);
+ const won=createFlight(hull);const empty={...m,events:[]};for(let i=0;i<1501;i++)stepFlight(won,idle,hull,empty,.05);expect(won.status).toBe('delivered');expect(won.time).toBe(75);expect(createFlight(hull).time).toBe(0);
+ const combat=createFlight(hull);const pirate:Entity={id:1,kind:'pirate',x:0,y:0,z:-25,vx:0,vy:0,radius:1.3,hp:3,age:0,fire:99};combat.entities=[pirate];combat.serial=2;
+ for(let i=0;i<20;i++)stepFlight(combat,{...idle,fire:true},hull,empty,.025);expect(combat.kills).toBe(1);
+ const impact=createFlight(hull);impact.entities=[{...pirate,kind:'asteroid',z:-1,hp:2}];stepFlight(impact,idle,hull,empty,.05);expect(impact.hull).toBeLessThan(100);expect(impact.cargo).toBeLessThan(100);
+ const gravity=createFlight(hull);gravity.entities=[{...pirate,kind:'blackhole',x:5,z:-15}];stepFlight(gravity,idle,hull,empty,.05);expect(gravity.x).toBeGreaterThan(0);
+});
+test('AI output constraints and real geometry',()=>{
+ expect(()=>validateHull({widths:[1]})).toThrow();expect(()=>validateMission({events:[]})).toThrow();
+ const h=validateHull({name:'Sketch',widths:[.1,.3,.6,1,8,1.8,1,.6,.4],thickness:20,engines:200});expect(h.widths[4]).toBe(2.2);expect(h.thickness).toBe(.8);expect(h.engines).toBe(3);
+ for(const ship of [...FLEET,h]){const mesh=buildShip(ship);const bounds=new THREE.Box3().setFromObject(mesh);const size=bounds.getSize(new THREE.Vector3());expect(size.x).toBeGreaterThan(1);expect(size.x).toBeLessThan(5);expect(size.z).toBeLessThan(9);let triangles=0;mesh.traverse(o=>{if(o instanceof THREE.Mesh)triangles+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3;});expect(triangles).toBeLessThan(10000);disposeObject(mesh);}
+ const m=validateMission(practiceMission());expect(m.events.length).toBeGreaterThan(9);for(let i=1;i<m.events.length;i++)expect(m.events[i].at-m.events[i-1].at).toBeGreaterThanOrEqual(2.999);
+});
+test('hangar, drawing, ship selection, launch, pause and restart',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeVisible();await expect(page.locator('canvas')).toBeVisible();await page.screenshot({path:'outputs/hangar-desktop.png',fullPage:true});
+ await page.getByRole('button',{name:/02 Wraith/}).click();await expect(page.locator('.ship-name h2')).toHaveText('Wraith');await page.getByRole('button',{name:/03 Atlas/}).click();await expect(page.locator('.ship-name h2')).toHaveText('Atlas');
+ await page.getByRole('button',{name:/Build your own/}).click();await expect(page.getByRole('dialog')).toBeVisible();await expect(page.getByRole('button',{name:'Build local 3D preview'})).toBeDisabled();
+ const canvas=page.getByLabel('Draw a top-down spaceship outline'),b=await canvas.boundingBox();if(!b)throw Error('No drawing surface');
+ const pts=[[.5,.14],[.38,.36],[.17,.68],[.26,.83],[.48,.72],[.74,.83],[.83,.68],[.62,.36],[.5,.14]];
+ await page.mouse.move(b.x+b.width*pts[0][0],b.y+b.height*pts[0][1]);await page.mouse.down();for(const [x,y] of pts.slice(1))await page.mouse.move(b.x+b.width*x,b.y+b.height*y,{steps:12});await page.mouse.up();
+ await page.screenshot({path:'outputs/sketch-pad.png'});await page.getByRole('button',{name:'Build local 3D preview'}).click();await expect(page.locator('.ship-name h2')).toHaveText('Sketch 01');await page.screenshot({path:'outputs/custom-hull.png',fullPage:true});
+ await page.getByRole('button',{name:'Launch delivery'}).click();await page.keyboard.down('KeyD');await page.keyboard.down('KeyW');await page.keyboard.down('Space');await page.waitForTimeout(1700);await page.keyboard.up('KeyD');await page.keyboard.up('KeyW');await page.keyboard.up('Space');
+ await page.screenshot({path:'outputs/flight.png'});await page.getByRole('button',{name:'Pause game'}).click();await expect(page.getByText('Take a breath.')).toBeVisible();await page.getByRole('button',{name:'Resume delivery'}).click();await page.keyboard.press('Escape');await page.getByRole('button',{name:'Return to hangar'}).click();await expect(page.locator('.ship-name h2')).toHaveText('Sketch 01');
+ await page.getByRole('button',{name:'Launch delivery'}).click();await expect(page.locator('.hud-vitals')).toContainText('100');expect(errors).toEqual([]);
+});
+test('mobile layout and API offline/error handling',async({page,request})=>{
+ await page.setViewportSize({width:390,height:844});await page.goto('/');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeVisible();await page.screenshot({path:'outputs/hangar-mobile.png',fullPage:true});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ const status=await request.get('/api/ai-status');expect(await status.json()).toEqual({available:false});
+ const unavailable=await request.post('/api/mission',{data:{}});expect(unavailable.status()).toBe(503);expect((await unavailable.json()).error).toContain('not connected');
+ const invalid=await request.post('/api/ship',{data:{image:'not-an-image'}});expect(invalid.status()).toBe(400);
+ const crossOrigin=await request.post('/api/mission',{data:{},headers:{Origin:'https://example.com'}});expect(crossOrigin.status()).toBe(403);
+ await page.getByRole('button',{name:'Launch delivery'}).click();await expect(page.getByRole('button',{name:'FIRE',exact:true})).toBeVisible();await page.screenshot({path:'outputs/flight-mobile.png'});
+});
+test('full 75-second run reaches its result and can restart',async({page})=>{
+ await page.goto('/');await page.getByRole('button',{name:'Launch delivery'}).click();
+ await expect(page.getByRole('button',{name:'Run it again'})).toBeVisible({timeout:90000});
+ await page.screenshot({path:'outputs/mission-result.png'});await page.getByRole('button',{name:'Run it again'}).click();await expect(page.getByRole('button',{name:'Pause game'})).toBeVisible();await expect(page.getByRole('button',{name:'Run it again'})).not.toBeVisible();
+});
+
+test('evasive flight can deliver the full practice mission',()=>{
+ const hull=FLEET[0],state=createFlight(hull),mission=practiceMission();
+ for(let i=0;i<1501;i++){const t=i*.05;const phase=(t-1)%6.8;const action=t<1?{x:0,y:1,fire:true}:phase<2?{x:1,y:0,fire:true}:phase<3.4?{x:0,y:-1,fire:true}:phase<5.4?{x:-1,y:0,fire:true}:{x:0,y:1,fire:true};stepFlight(state,action,hull,mission,.05);}
+ console.log('Full route:',state.status,'hull',state.hull,'cargo',state.cargo,'cleared',state.kills);expect(state.status).toBe('delivered');
+});
+test('successful piloted delivery in the browser',async({page})=>{
+ await page.goto('/');await page.getByRole('button',{name:'Launch delivery'}).click();await page.keyboard.down('Space');await page.keyboard.down('KeyW');await page.waitForTimeout(1000);await page.keyboard.up('KeyW');
+ const end=Date.now()+76500;
+ while(Date.now()<end){for(const [key,duration] of [['KeyD',2000],['KeyS',1400],['KeyA',2000],['KeyW',1400]] as const){await page.keyboard.down(key);await page.waitForTimeout(Math.min(duration,Math.max(1,end-Date.now())));await page.keyboard.up(key);if(Date.now()>=end)break;}}
+ await page.keyboard.up('Space');await expect(page.getByText('Cargo delivered.',{exact:true})).toBeVisible({timeout:15000});await page.screenshot({path:'outputs/successful-delivery.png'});await page.getByRole('button',{name:'Run it again'}).click();await expect(page.locator('.hud-vitals')).toContainText('100');
+});
+test('AI service failure is visible and leaves practice playable',async({page})=>{
+ await page.route('**/api/ai-status',route=>route.fulfill({json:{available:true}}));
+ await page.route('**/api/mission',route=>route.fulfill({status:503,json:{error:'OpenAI could not complete this request.'}}));
+ await page.goto('/');await expect(page.getByRole('status')).toContainText('Practice route is ready to fly.');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeEnabled();await page.getByRole('button',{name:'Launch delivery'}).click();await expect(page.locator('.route-progress')).toContainText('PRACTICE ROUTE');
+});
