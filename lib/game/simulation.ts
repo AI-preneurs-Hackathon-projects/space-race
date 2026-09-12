@@ -1,8 +1,8 @@
 import { clamp, DURATION, CRUISE_SPEED, WARP_MAX_SPEED, WARP_DURATION, MAX_PORTALS, type Hull, type Mission, type EncounterKind } from './types';
-import { OBJECTS, type ObjectType, isField, isShip } from './objects';
+import { OBJECTS, DEFAULT_ROCK, isObjectType, type ObjectType, isField, isShip } from './objects';
 import { FlightPhysics, PHYSICS_STEP } from './physics';
 export { initializePhysics } from './physics';
-export type Entity={id:number;kind:EncounterKind|'shot'|'hostile'|'debris';objectType?:ObjectType;x:number;y:number;z:number;vx:number;vy:number;vz?:number;radius:number;wave?:number;anchorX?:number;anchorY?:number;hp:number;maxHp?:number;age:number;fire:number;mass?:number;hitAge?:number;fuse?:number;ttl?:number;credit?:boolean;ownerId?:number;qx?:number;qy?:number;qz?:number;qw?:number};
+export type Entity={id:number;kind:EncounterKind|'shot'|'hostile'|'debris';objectType?:ObjectType;x:number;y:number;z:number;vx:number;vy:number;vz?:number;radius:number;wave?:number;anchorX?:number;anchorY?:number;hp:number;maxHp?:number;age:number;fire:number;mass?:number;hitAge?:number;ttl?:number;credit?:boolean;ownerId?:number;qx?:number;qy?:number;qz?:number;qw?:number};
 export type FlightEffect={id:number;kind:'hit'|'explosion'|'muzzle'|'collect'|'jump';x:number;y:number;z:number;age:number;life:number;size:number;color:string;seed:number};
 export type Input={x:number;y:number;fire:boolean};
 export type Flight={time:number;progress:number;cruise:number;speed:number;warpAge:number|null;portalsUsed:number;x:number;y:number;vx:number;vy:number;hull:number;maxHull:number;cargo:number;kills:number;shots:number;hits:number;immune:number;cooldown:number;next:number;lastEncounterArrival:number;serial:number;entities:Entity[];effects:FlightEffect[];status:'flying'|'delivered'|'lost';warning:string;shield:number;field:string;fieldX:number;fieldY:number;chainHits:number;collisions:number;distanceSaved:number;shotAge:number};
@@ -16,7 +16,7 @@ export function warpSpeed(age:number|null){if(age===null||age<0||age>=WARP_DURAT
 function warpIntegral(t:number){t=clamp(t,0,8);if(t<=1)return t*t*t-.5*t*t*t*t;if(t<=6)return .5+t-1;const u=(t-6)/2;return 5.5+2*(u-u*u*u+.5*u*u*u*u);}
 export function courseStep(age:number|null,dt:number){return dt+(age===null?0:(WARP_MAX_SPEED-1)*(warpIntegral(age+dt)-warpIntegral(age)));}
 export function damage(s:Flight,amount:number,cargo:number){if(s.immune>0||s.shield>0||s.status!=='flying')return;s.hull=Math.max(0,s.hull-amount);s.cargo=Math.max(0,s.cargo-cargo);s.immune=.85;s.hits++;s.warning='Hull hit. Counter the drift and protect the cargo.';if(!s.hull||!s.cargo)s.status='lost';}
-export const typeOf=(e:Entity):ObjectType=>e.objectType??(e.kind==='pirate'?'pirate':e.kind==='portal'?'portal':'asteroid');
+export const typeOf=(e:Entity):ObjectType=>(isObjectType(e.objectType)?e.objectType:e.kind==='pirate'?'pirate':e.kind==='portal'?'portal':DEFAULT_ROCK);
 export function isSolid(e:Entity){return e.kind!=='portal'&&e.kind!=='shot'&&e.kind!=='hostile';}
 export function isThreat(e:Entity){return e.hp>0&&e.kind!=='shot'&&e.kind!=='portal'&&!OBJECTS[typeOf(e)].collect;}
 export const MAX_DEBRIS=48,MAX_ENTITIES=150,MAX_EFFECTS=64;
@@ -27,7 +27,7 @@ function sweptTime(a:{x:number;y:number;z:number},b:{x:number;y:number;z:number}
  const A=dx*dx+dy*dy+dz*dz,C=x*x+y*y+z*z-r*r;if(C<=0)return 0;if(A<1e-12)return Infinity;
  const B=2*(x*dx+y*dy+z*dz),disc=B*B-4*A*C;if(disc<0)return Infinity;const t=(-B-Math.sqrt(disc))/(2*A);return t>=0&&t<=1?t:Infinity;
 }
-function specEntity(s:Flight,id:ObjectType,x:number,y:number,z:number,wave?:number):Entity{const spec=OBJECTS[id];return {id:s.serial++,kind:isShip(id)?'pirate':id==='portal'?'portal':spec.family==='rock'?'asteroid':'object',objectType:id,x,y,z,vx:0,vy:0,vz:0,anchorX:x,anchorY:y,radius:spec.radius,hp:spec.hp,maxHp:spec.hp,mass:spec.mass,age:0,fire:1.2,wave};}
+function specEntity(s:Flight,id:ObjectType,x:number,y:number,z:number,wave?:number):Entity{const spec=OBJECTS[id];return {id:s.serial++,kind:isShip(id)?'pirate':id==='portal'?'portal':spec.family==='rock'?'asteroid':'object',objectType:id,x,y,z,vx:0,vy:0,vz:0,anchorX:x,anchorY:y,radius:spec.radius,hp:spec.hp,maxHp:spec.hp,mass:spec.mass,age:0,fire:spec.weapons?.warmup??1.2,wave};}
 export function spawnObject(s:Flight,id:ObjectType,x:number,y:number,z:number,velocity:{x?:number;y?:number;z?:number}={}):Entity{const e=specEntity(s,id,x,y,z);e.vx=velocity.x??0;e.vy=velocity.y??0;e.vz=velocity.z??0;s.entities.push(e);return e;}
 function detonate(s:Flight,e:Entity,p:FlightPhysics,credit:boolean){
  if(e.hp<=0)return;e.hp=0;e.credit=credit;if(e.kind==='debris'){effect(s,'hit',e,e.radius,'#ddbb99');return;}const id=typeOf(e),spec=OBJECTS[id];
@@ -51,15 +51,16 @@ function detonate(s:Flight,e:Entity,p:FlightPhysics,credit:boolean){
 function hit(s:Flight,e:Entity,amount:number,p:FlightPhysics,credit:boolean){if(e.hp<=0)return;effect(s,'hit',e,e.radius,'#d9f8ff');if(isField(typeOf(e))&&e.kind!=='debris')return;e.hitAge=.65;e.credit=credit||e.credit;e.hp-=amount;if(e.hp<=0){e.hp=.001;detonate(s,e,p,!!e.credit);}}
 function addBodies(s:Flight,p:FlightPhysics){for(const e of s.entities)if(e.hp>0&&e.kind!=='portal')p.add(e,p.player.translation().z);}
 function spawnEncounters(s:Flight,mission:Mission,p:FlightPhysics){
- while(s.next<mission.events.length&&s.progress>=mission.events[s.next].at){const e=mission.events[s.next++],id=e.objectType??(e.kind==='pirate'?'pirate':e.kind==='portal'?'portal':'asteroid');
+ while(s.next<mission.events.length&&s.progress>=mission.events[s.next].at){const e=mission.events[s.next++];if(e.objectType!==undefined&&!isObjectType(e.objectType))continue;const id=(isObjectType(e.objectType)?e.objectType:e.kind==='pirate'?'pirate':e.kind==='portal'?'portal':DEFAULT_ROCK);
   if(s.warpAge===null)s.warning=id==='portal'?'Cyan jump gate ahead. Align with the opening.':`${OBJECTS[id].name} ahead. ${OBJECTS[id].description}`;
-  const peak=s.warpAge===null?1:WARP_MAX_SPEED,lead=145*s.cruise*peak+(id==='missile'?100:0),spacing=mission.challenge?Math.max(3.5,1.8*s.cruise*peak):3.5;
+  const peak=s.warpAge===null?1:WARP_MAX_SPEED,lead=Math.max(145*s.cruise*peak,isShip(id)?((mission.challenge?.bulletSpeed??29)+29*s.cruise)*(1.4+(OBJECTS[id].weapons?.warmup??.6)+.85):0)+(id==='missile'?100:0),spacing=3.5;
+  // Route spacing stays in course units. Multiplying it by warp speed queued later gates beyond the visibility/culling range.
   const arrival=Math.max(e.at+lead/CRUISE_SPEED,s.lastEncounterArrival+spacing);s.lastEncounterArrival=arrival;if(mission.challenge&&arrival>138)continue;
   const pts=e.points??Array.from({length:e.count},(_,i)=>({x:e.x+i*3.5,y:e.y-i*2,radius:id==='portal'?(e.portalRadius??4.3):OBJECTS[id].radius}));
   for(let i=0;i<pts.length&&s.entities.length<MAX_ENTITIES-12;i++){const pt=pts[i],o=specEntity(s,id,pt.x,pt.y,-(arrival-s.progress)*CRUISE_SPEED-(e.points?0:i*15),s.next-1);o.radius=pt.radius;
    o.vx=e.drift??(id==='comet'?-Math.sign(pt.x||1)*2:!e.points&&!isField(id)?Math.sin(o.id)*.22:0);o.vy=!e.points&&!isField(id)?Math.cos(o.id)*.12:0;if(id==='missile')o.vz=20;s.entities.push(o);
   }
-  if(e.escort&&s.entities.length<MAX_ENTITIES-8)s.entities.push(specEntity(s,e.escort,e.x+3.6,e.y,-(arrival-s.progress)*CRUISE_SPEED+1,s.next-1));
+  if(e.escort&&isObjectType(e.escort)&&s.entities.length<MAX_ENTITIES-8)s.entities.push(specEntity(s,e.escort,e.x+3.6,e.y,-(arrival-s.progress)*CRUISE_SPEED+1,s.next-1));
  }
  addBodies(s,p);
 }
@@ -84,8 +85,6 @@ function forces(s:Flight,input:Input,hull:Hull,mission:Mission,p:FlightPhysics){
    const amp=mission.challenge?.pirateMotion??.35,x=(e.anchorX??e.x)+Math.sin(e.age*1.15+e.id)*amp,y=(e.anchorY??e.y)+Math.sin(e.age*.8+e.id)*amp*.35,v=b.linvel();
    b.addForce({x:clamp((x-e.x)*3-v.x*1.5,-4,4)*b.mass(),y:clamp((y-e.y)*3-v.y*1.5,-3,3)*b.mass(),z:clamp(-v.z*.15,-2,2)*b.mass()},true);
   }else if(e.objectType==='missile'){const v=b.linvel();b.addForce({x:clamp((s.x-e.x)*1.3-v.x,-3,3)*b.mass(),y:clamp((s.y-e.y)*1.3-v.y,-3,3)*b.mass(),z:clamp((20-v.z)*2,-10,10)*b.mass()},true);}
-  if(e.objectType==='proximity-mine'&&e.z<0&&Math.hypot(e.x-s.x,e.y-s.y,e.z)<20&&e.fuse===undefined)e.fuse=.55;
-  if(e.fuse!==undefined){e.fuse-=PHYSICS_STEP;if(e.fuse<=0)detonate(s,e,p,false);}
   if(spec.collect&&Math.hypot(e.x-s.x,e.y-s.y,e.z)<e.radius+1){if(spec.collect==='repair')s.hull=Math.min(s.maxHull,s.hull+22);if(spec.collect==='cargo')s.cargo=Math.min(100,s.cargo+12);if(spec.collect==='shield')s.shield=8;e.hp=0;s.warning=spec.collect==='shield'?'Shield online for 8 seconds.':`${spec.name} collected. Supplies restored.`;effect(s,'collect',e,3,spec.color);}
  }
 }
@@ -95,9 +94,11 @@ function weapons(s:Flight,input:Input,hull:Hull,mission:Mission,p:FlightPhysics)
   const shot:Entity={id:s.serial++,kind:'shot',x:s.x,y:s.y,z:-2.6,vx:target?(target.x-s.x)/t:v.x*.2,vy:target?(target.y-s.y)/t:v.y*.2,vz:v.z-150,radius:.2,mass:.02,hp:1,age:0,fire:0,ttl:3};s.entities.push(shot);p.add(shot,p.player.translation().z);effect(s,'muzzle',{x:s.x,y:s.y,z:-2},.6,'#b6faff');
  }
  for(const e of [...s.entities]){if(e.hp<=0||e.kind!=='pirate')continue;e.fire-=PHYSICS_STEP;if(s.warpAge!==null)e.fire=Math.max(e.fire,1);
-  const closing=29+CRUISE_SPEED*s.speed,volley=e.objectType==='saucer-cruiser'||e.objectType==='wedge-destroyer'?2:mission.challenge?.volley??1;
-  if(s.warpAge===null&&e.z> -210&&e.z< -(closing*1.4+4)&&e.fire<=0){e.fire=(mission.challenge?.pirateInterval??2.15)*(e.objectType==='wedge-destroyer'?1.3:1);const t=-e.z/closing;
-   for(let j=0;j<volley&&s.entities.length<MAX_ENTITIES;j++){const spread=volley===2?(j?1:-1)*.8:0;const b:Entity={id:s.serial++,kind:'hostile',ownerId:e.id,x:e.x,y:e.y,z:e.z+e.radius+.5,vx:(s.x+s.vx*.15+spread-e.x)/t,vy:(s.y+s.vy*.15-e.y)/t,vz:29,radius:.3,mass:.04,hp:1,age:0,fire:0,ttl:7};s.entities.push(b);p.add(b,p.player.translation().z);}effect(s,'muzzle',e,1,'#ff8060');
+  const weapon=OBJECTS[typeOf(e)].weapons;if(!weapon)continue;
+  const bulletSpeed=mission.challenge?.bulletSpeed??29,aim=mission.challenge?.aimLead??.15,closing=bulletSpeed+CRUISE_SPEED*s.speed,muzzleZ=e.z+e.radius+.6,volley=Math.max(weapon.volley,mission.challenge?.volley??1);
+  // Aim from the visible muzzle and leave at least 1.4 seconds before a shot can arrive.
+  if(s.warpAge===null&&e.z> -210&&muzzleZ< -closing*1.4&&e.fire<=0){e.fire=(mission.challenge?.pirateInterval??2.15)*weapon.cadence;const t=-muzzleZ/closing;
+   for(let j=0;j<volley&&s.entities.length<MAX_ENTITIES;j++){const side=volley===2?(j?1:-1):0,x=e.x+side*Math.min(.6,e.radius*.3);const b:Entity={id:s.serial++,kind:'hostile',ownerId:e.id,x,y:e.y,z:muzzleZ,vx:(s.x+s.vx*aim+side*.8-x)/t,vy:(s.y+s.vy*aim-e.y)/t,vz:bulletSpeed,radius:.3,mass:.04,hp:1,age:0,fire:0,ttl:7};s.entities.push(b);p.add(b,p.player.translation().z);effect(s,'muzzle',b,.8,'#ff8060');}
   }
  }
 }
@@ -121,7 +122,7 @@ function tick(s:Flight,input:Input,hull:Hull,mission:Mission,r:Runtime){
  }
  const player={x:s.x,y:s.y,z:0};
  for(const shot of [...s.entities]){if(shot.hp<=0||(shot.kind!=='shot'&&shot.kind!=='hostile'))continue;let nearest:Entity|undefined,time=Infinity;
-  for(const target of s.entities){if(target.hp<=0||!isSolid(target)||target.id===shot.ownerId)continue;const t=target.objectType==='ring-station'?p.sweepRing(target.id,old.get(shot.id)??shot,shot,old.get(target.id)??target,target,shot.radius):sweptTime(old.get(shot.id)??shot,shot,old.get(target.id)??target,target,target.radius+shot.radius);if(t<time){time=t;nearest=target;}}
+  for(const target of s.entities){if(target.hp<=0||!isSolid(target)||target.id===shot.ownerId)continue;const t=sweptTime(old.get(shot.id)??shot,shot,old.get(target.id)??target,target,target.radius+shot.radius);if(t<time){time=t;nearest=target;}}
   const playerT=shot.kind==='hostile'?sweptTime(old.get(shot.id)??shot,shot,oldPlayer,player,.65+shot.radius):Infinity;
   if(playerT<time){damage(s,16,9);shot.hp=0;effect(s,'hit',player,1,'#ff7653');}
   else if(nearest&&time!==Infinity){shot.hp=0;const body=p.bodies.get(nearest.id),direction=shot.kind==='shot'?-1:1;body?.applyImpulse({x:shot.vx*.04,y:shot.vy*.04,z:direction*3.5},true);hit(s,nearest,1,p,shot.kind==='shot');}

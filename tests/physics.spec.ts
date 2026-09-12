@@ -10,7 +10,7 @@ function advance(s:Flight,seconds:number,input=idle,hull:Hull=FLEET[0]){for(let 
 test('rigid bodies exchange momentum, rebound and take damage from impact speed',()=>{
  const s=createFlight(FLEET[0]);const a=spawnObject(s,'iron-asteroid',-2,3,-70,{x:6}),b=spawnObject(s,'iron-asteroid',2,3,-70,{x:-6});advance(s,.3);
  expect(a.vx).toBeLessThan(0);expect(b.vx).toBeGreaterThan(0);expect(a.hp).toBeLessThan(5);expect(b.hp).toBeLessThan(5);expect(s.collisions).toBeGreaterThan(0);
- const t=createFlight(FLEET[0]);const heavy=spawnObject(t,'iron-asteroid',2,3,-70),light=spawnObject(t,'sputnik',-2,3,-70,{x:6});advance(t,.4);expect(heavy.vx).toBeGreaterThan(0);expect(light.vx).toBeLessThan(heavy.vx);
+ const t=createFlight(FLEET[0]);const heavy=spawnObject(t,'iron-asteroid',2,3,-70),light=spawnObject(t,'ice-asteroid',-2,3,-70,{x:6});advance(t,.4);expect(heavy.vx).toBeGreaterThan(0);expect(light.vx).toBeLessThan(heavy.vx);
 });
 test('gravity and repulsion affect player and objects; black holes consume matter',()=>{
  const attract=createFlight(FLEET[0]),repel=createFlight(FLEET[0]);spawnObject(attract,'moon',7,0,-20);spawnObject(repel,'repulsor',7,0,-20);
@@ -26,10 +26,6 @@ test('explosives damage enemies, push rocks, chain once and leave distant target
 test('swept projectiles hit the nearest solid and impart impulse',()=>{
  const s=createFlight(FLEET[0]),far=spawnObject(s,'iron-asteroid',0,0,-17),near=spawnObject(s,'iron-asteroid',0,0,-10);
  advance(s,.07,{...idle,fire:true});expect(near.hp).toBe(4);expect(far.hp).toBe(5);advance(s,.02);expect(near.vz).toBeLessThan(0);expect(near.hitAge).toBeGreaterThan(0);expect(s.effects.some(e=>e.kind==='hit')).toBe(true);
-});
-test('ring opening uses its physical rim and hub for projectile hits',()=>{
- const s=createFlight(FLEET[0]);s.x=.72;const station=spawnObject(s,'ring-station',0,0,-15);advance(s,.1,{...idle,fire:true});expect(station.hp).toBe(7);
- const t=createFlight(FLEET[0]);const center=spawnObject(t,'ring-station',0,0,-15);advance(t,.1,{...idle,fire:true});expect(center.hp).toBe(6);
 });
 test('debris produces collision damage without becoming another full explosion',()=>{
  const s=createFlight(FLEET[0]),rock=spawnObject(s,'iron-asteroid',0,3,-20);s.entities.push({id:s.serial++,kind:'debris',x:-2,y:3,z:-20,vx:12,vy:0,vz:0,radius:.2,mass:.18,hp:1,maxHp:1,age:0,fire:0,ttl:3.8,credit:true});advance(s,.3);expect(rock.hp).toBeLessThan(5);expect(s.effects.filter(e=>e.kind==='explosion')).toHaveLength(0);
@@ -49,14 +45,10 @@ test('fixed stepping is independent of 10, 20, 30 and 60 FPS and zero-time pause
  for(const s of states.slice(1)){expect(s.x).toBeCloseTo(states[0].x,5);expect(s.y).toBeCloseTo(states[0].y,5);expect(s.progress).toBeCloseTo(states[0].progress,5);expect(s.shots).toBe(states[0].shots);}
  const before=JSON.stringify(states[0]);stepFlight(states[0],{x:1,y:1,fire:true},FLEET[0],empty,0);expect(JSON.stringify(states[0])).toBe(before);
 });
-test('the 25-object catalog is reachable and has valid bounded physics',()=>{
+test('the active object catalog is reachable and has valid bounded physics',()=>{
  const seen=new Set<string>();for(let stage=1;stage<=3;stage++)for(const e of stageMission(stage,73).events){if(e.objectType)seen.add(e.objectType);if(e.escort)seen.add(e.escort);}expect([...seen].sort()).toEqual([...OBJECT_TYPES].sort());
  for(const id of OBJECT_TYPES){const s=createFlight(FLEET[0]);spawnObject(s,id,5,3,-60);advance(s,.1);expect(Number.isFinite(s.progress)).toBe(true);expect(s.entities.length).toBeGreaterThan(0);for(const e of s.entities)expect([e.x,e.y,e.z,e.vx,e.vy,e.vz??0].every(Number.isFinite)).toBe(true);expect(OBJECTS[id].radius).toBeGreaterThan(0);disposeFlight(s);expect(physicsBodyCount(s)).toBe(0);}
 });
 test('entity, debris and effect lifetime cleanup stays bounded',()=>{
  const s=createFlight(FLEET[0]);for(let i=0;i<8;i++)spawnObject(s,'fuel-tank',i*2.5,0,-25);advance(s,5,{...idle,fire:true});expect(s.entities.length).toBeLessThanOrEqual(MAX_ENTITIES);expect(s.effects.length).toBeLessThanOrEqual(MAX_EFFECTS);expect(s.entities.filter(e=>e.kind==='debris').length).toBeLessThanOrEqual(MAX_DEBRIS);expect(physicsBodyCount(s)).toBe(s.entities.filter(e=>e.kind!=='portal').length);disposeFlight(s);expect(physicsBodyCount(s)).toBe(0);
-});
-
-test('mines telegraph a fuse and can damage a passing ship',()=>{
- const s=createFlight(FLEET[0]),mine=spawnObject(s,'proximity-mine',0,0,-18);advance(s,.1);expect(mine.fuse).toBeGreaterThan(0);expect(s.hull).toBe(100);advance(s,.55);expect(mine.hp).toBeLessThanOrEqual(0);expect(s.hull).toBeLessThan(100);expect(s.effects.some(e=>e.kind==='explosion')).toBe(true);
 });

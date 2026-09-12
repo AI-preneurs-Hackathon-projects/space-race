@@ -6,10 +6,10 @@ import {stepFlight,type Input} from '../lib/game/simulation';
 import {planetPosition,PLANET_RADIUS} from '../lib/game/space-environment';
 const idle={x:0,y:0,fire:false};
 function pilot(state:ReturnType<typeof createFlight>,mission:Mission):Input{
- const threats=state.entities.filter(e=>(e.kind==='asteroid'||e.kind==='pirate'||e.kind==='hostile')&&e.z<0&&e.z> -210);
+ const threats=state.entities.filter(e=>(e.kind==='asteroid'||e.kind==='pirate'||e.kind==='hostile'||e.objectType==='missile')&&e.z<0&&e.z> -210);
  let best={x:state.x,y:state.y,score:-Infinity};
  for(let x=-8;x<=8;x+=1)for(let y=-4;y<=4;y+=1){let risk=0;
-  for(const e of threats){const t=-e.z/(e.kind==='hostile'?58:29*state.speed),ex=e.x+e.vx*t,ey=e.y+e.vy*t,dist=Math.hypot(x-ex,y-ey),clear=dist-e.radius-.8;risk+=Math.max(0,3-clear)*Math.max(0,1-t/6)*(clear<0?8:1);}
+  for(const e of threats){const t=-e.z/((e.vz??0)+29*state.speed),ex=e.x+e.vx*t,ey=e.y+e.vy*t,dist=Math.hypot(x-ex,y-ey),clear=dist-e.radius-.8;risk+=Math.max(0,3-clear)*Math.max(0,1-t/6)*(clear<0?8:1);}
   const score=-risk-Math.hypot(x-state.x,y-state.y)*.12;
   if(score>best.score)best={x,y,score};
  }
@@ -37,7 +37,7 @@ test('all generated gates have clear reachable lanes and bounded complexity',()=
  for(const stage of [1,4,9,100])for(let seed=0;seed<40;seed++){const m=stageMission(stage,seed);let x=0,y=0;
   for(const e of m.events){if(!e.gap)continue;biggestJumpX=Math.max(biggestJumpX,Math.abs(e.gap.x-x));biggestJumpY=Math.max(biggestJumpY,Math.abs(e.gap.y-y));x=e.gap.x;y=e.gap.y;biggestWave=Math.max(biggestWave,e.points!.length);for(const p of e.points!)smallestClearance=Math.min(smallestClearance,Math.hypot(e.gap.x-p.x,e.gap.y-p.y)-p.radius-.65);}
  }
- expect(biggestJumpX).toBeLessThanOrEqual(5.001);expect(biggestJumpY).toBeLessThanOrEqual(3.001);expect(biggestWave).toBeLessThanOrEqual(40);expect(smallestClearance).toBeGreaterThan(1.5);expect(difficulty(100)).toEqual(difficulty(9));
+ expect(biggestJumpX).toBeLessThanOrEqual(5.001);expect(biggestJumpY).toBeLessThanOrEqual(3.001);expect(biggestWave).toBeLessThanOrEqual(40);expect(smallestClearance).toBeGreaterThan(1.5);expect(difficulty(100).pirateInterval).toBeLessThan(difficulty(9).pirateInterval);expect(difficulty(10).tier).toBe(10);
 });
 test('multiple seeded stages can be delivered by steering and firing',()=>{
  for(const stage of [1,4,9]){let wins=0;for(let seed=1;seed<=3;seed++){const hull=effectiveHull(FLEET[2],{...newCampaign(seed),hullUpgrades:Math.min(stage-1,5),cruiseUpgrades:stage>=9?4:0}),m=stageMission(stage,seed),s=createFlight(hull);for(let i=0;i<3100&&s.status==='flying';i++)stepFlight(s,pilot(s,m),hull,m,.05);if(s.status==='delivered')wins++;console.log('stage run',stage,seed,s.status,s.hull,s.cargo);}
@@ -75,5 +75,5 @@ test('offset portal alignment stays safe and hostile shots leave reaction time',
  const h={...FLEET[2],cruise:1.2},m=stageMission(9,123),gate=m.events.find(e=>e.kind==='portal')!;
  for(const aligned of [true,false]){const s=createFlight(h);if(aligned){s.x=gate.x;s.y=gate.y;}s.entities=[{id:1,kind:'portal',x:gate.x,y:gate.y,z:-.3,vx:0,vy:0,radius:gate.portalRadius!,hp:2,age:0,fire:0}];stepFlight(s,idle,h,{...m,events:[]},.05);expect(s.portalsUsed).toBe(aligned?1:0);expect(s.hull).toBe(h.armor);}
  const s=createFlight(h);s.entities=[{id:1,kind:'pirate',x:5,y:2,z:-170,vx:0,vy:0,radius:1.3,hp:3,age:0,fire:0}];s.serial=2;const seen=new Set<number>();let shots=0;
- for(let i=0;i<80;i++){stepFlight(s,idle,h,{...m,events:[]},.05);for(const e of s.entities)if(e.kind==='hostile'&&!seen.has(e.id)){seen.add(e.id);shots++;expect(-e.z/(58+.2*29)).toBeGreaterThanOrEqual(1.4);}}expect(shots).toBeGreaterThan(0);
+ for(let i=0;i<80;i++){stepFlight(s,idle,h,{...m,events:[]},.05);for(const e of s.entities)if(e.kind==='hostile'&&!seen.has(e.id)){seen.add(e.id);shots++;expect(-e.z/((m.challenge?.bulletSpeed??29)+29*s.speed)).toBeGreaterThanOrEqual(1.35);}}expect(shots).toBeGreaterThan(0);
 });

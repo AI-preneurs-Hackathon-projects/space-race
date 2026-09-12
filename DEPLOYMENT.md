@@ -1,5 +1,7 @@
 # Yerzhan's physics and encounters update
 
+Historical report for the September 12 physics delivery. Current gameplay, validation and deployment routing are documented in README.md; the publication and GitHub limitations below describe that earlier run.
+
 Prepared September 12, 2026. The freshly fetched GitHub `main` still resolves to `bbac61dc8db8a16269e2406b571477d42a112c57`; the previous private baseline is `b51c2b090ee62a2e5f5f887eaa2f4468ebe0836b`.
 
 - Dedicated checkout/branch: `yerzhan/space-race`.

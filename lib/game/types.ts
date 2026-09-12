@@ -8,7 +8,7 @@ import type { ObjectType } from './objects';
 export type EncounterKind = "asteroid" | "pirate" | "portal" | "object";
 /** at is a route-progress coordinate in normal-speed course-seconds, not wall time. */
 export type Encounter = { at:number; kind:EncounterKind; x:number; y:number; count:number; objectType?:ObjectType; escort?:ObjectType; drift?:number; points?:{x:number;y:number;radius:number}[]; gap?:{axis:string;center:number;halfWidth:number;x:number;y:number}; portalRadius?:number };
-export type Mission = { title:string; events:Encounter[]; source:"openai"|"practice"; note:string;stage?:number;seed?:number;attempt?:number;challenge?:{tier:number;label:string;waves:number;gapWidth:number;portalRadius:number;pirateMotion:number;pirateInterval:number;volley:number} };
+export type Mission = { title:string; events:Encounter[]; source:"openai"|"practice"; note:string;stage?:number;seed?:number;attempt?:number;challenge?:{tier:number;label:string;waves:number;gapWidth:number;portalRadius:number;pirateMotion:number;pirateInterval:number;aimLead?:number;bulletSpeed?:number;volley:number} };
 export const DURATION = 150;
 export const CRUISE_SPEED = 29;
 export const WARP_MAX_SPEED = 3;

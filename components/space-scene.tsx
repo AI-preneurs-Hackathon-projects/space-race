@@ -7,12 +7,12 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { buildShip, buildPortal, disposeObject } from "@/lib/game/meshes";
-import {buildDestinationPlanet} from "@/lib/game/space-environment";
+import {buildDestinationPlanet,buildStageBackground,stageEnvironment} from "@/lib/game/space-environment";
 import { cloneModel, preloadModels } from "@/lib/game/assets";
 import { createFlight, stepFlight, initializePhysics, disposeFlight, spawnObject, type Flight, type Input } from "@/lib/game/simulation";
 import { FLEET, ARRIVAL_START, DURATION, CRUISE_SPEED, WARP_MAX_SPEED, type Hull, type Mission } from "@/lib/game/types";
 
-import {buildEncounterVisual,updateEncounterVisual,buildEffectVisual,updateEffectVisual,addShipDamageVisuals,createDamageTrail,updateShipDamage} from "@/lib/game/combat-visuals";
+import {buildEncounterVisual,updateEncounterVisual,buildEffectVisual,updateEffectVisual,createDamageTrail,updateShipDamage} from "@/lib/game/combat-visuals";
 
 function addExhaust(root:THREE.Group,hull:Hull,enemy=false){
  root.updateMatrixWorld(true);const markers:THREE.Object3D[]=[];root.traverse(o=>{if(o.name.startsWith("exhaust_"))markers.push(o);});
@@ -23,7 +23,7 @@ function addExhaust(root:THREE.Group,hull:Hull,enemy=false){
   for(let i=0;i<2;i++){const cone=new THREE.Mesh(new THREE.ConeGeometry(i?.14:.27,i?1.35:2.05,16),new THREE.MeshBasicMaterial({color:i?new THREE.Color("#d7f8ff").multiplyScalar(3):color,transparent:true,opacity:i?.8:.25,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));cone.rotation.x=Math.PI/2;cone.position.z=i?.67:1.02;plume.add(cone);}root.add(plume);
  }
 }
-export default function SpaceScene({hull,mission,playing,paused,input,onUpdate,onError,onReady}:{hull:Hull;mission:Mission;playing:boolean;paused:boolean;input:React.RefObject<Input>;onUpdate:(s:Flight)=>void;onError:(s:string)=>void;onReady:(ready:boolean)=>void}){
+export default function SpaceScene({hull,mission,stage,playing,paused,input,onUpdate,onError,onReady}:{hull:Hull;mission:Mission;stage:number;playing:boolean;paused:boolean;input:React.RefObject<Input>;onUpdate:(s:Flight)=>void;onError:(s:string)=>void;onReady:(ready:boolean)=>void}){
  const container=useRef<HTMLDivElement>(null),portalLabel=useRef<HTMLDivElement>(null),pauseRef=useRef(paused),callback=useRef(onUpdate),errorRef=useRef(onError),readyRef=useRef(onReady);
  const [loading,setLoading]=useState(true);
  pauseRef.current=paused;callback.current=onUpdate;errorRef.current=onError;readyRef.current=onReady;
@@ -36,7 +36,7 @@ export default function SpaceScene({hull,mission,playing,paused,input,onUpdate,o
   renderer.shadowMap.enabled=!playing;renderer.shadowMap.type=THREE.PCFShadowMap;el.appendChild(renderer.domElement);
   renderer.domElement.setAttribute("aria-label",playing?"3D flight view":"Rotating 3D preview of "+hull.name);
   const scene=new THREE.Scene();scene.fog=new THREE.FogExp2("#081522",playing?.0023:.008);
-  const background=new THREE.TextureLoader().load("/distant-space-panorama.png");background.colorSpace=THREE.SRGBColorSpace;scene.background=background;
+  const profile=stageEnvironment(stage),background=buildStageBackground(profile);scene.background=background;renderer.domElement.dataset.environment=profile.kind;renderer.domElement.dataset.environmentSeed=String(profile.seed);
   const pmrem=new THREE.PMREMGenerator(renderer),room=new RoomEnvironment(),environment=pmrem.fromScene(room,.06);room.dispose();pmrem.dispose();scene.environment=environment.texture;scene.environmentIntensity=playing?.35:.4;
   const camera=new THREE.PerspectiveCamera(playing?65:40,1,.1,6000);camera.layers.enable(1);
   scene.add(new THREE.AmbientLight("#9eb9ce",.35));
@@ -47,8 +47,8 @@ export default function SpaceScene({hull,mission,playing,paused,input,onUpdate,o
   const ship=new THREE.Group();scene.add(ship);const state=createFlight(hull);if(playing)ship.scale.setScalar(.55);
   const starCount=mobile?400:700,starCenters=new Float32Array(starCount*3),starLines=new Float32Array(starCount*6),starGeometry=new THREE.BufferGeometry();
   for(let i=0;i<starCount;i++){const angle=Math.random()*Math.PI*2,radius=12+Math.random()*115;starCenters[i*3]=Math.cos(angle)*radius;starCenters[i*3+1]=Math.sin(angle)*radius;starCenters[i*3+2]=-Math.random()*480;}
-  starGeometry.setAttribute("position",new THREE.BufferAttribute(starLines,3));const starMaterial=new THREE.LineBasicMaterial({color:"#91c3ed",transparent:true,opacity:.65,blending:THREE.AdditiveBlending,depthWrite:false});const stars=new THREE.LineSegments(starGeometry,starMaterial);stars.frustumCulled=false;scene.add(stars);
-  const destination=playing?buildDestinationPlanet():null;if(destination)scene.add(destination.group);
+  starGeometry.setAttribute("position",new THREE.BufferAttribute(starLines,3));const starMaterial=new THREE.LineBasicMaterial({color:profile.star,transparent:true,opacity:.65,blending:THREE.AdditiveBlending,depthWrite:false});const stars=new THREE.LineSegments(starGeometry,starMaterial);stars.frustumCulled=false;scene.add(stars);
+  const destination=playing?buildDestinationPlanet(profile,mobile):null;if(destination)scene.add(destination.group);
   const rings:THREE.Mesh[]=[];const station=new THREE.Group();
   if(playing){
    const dock=new THREE.Mesh(new THREE.TorusGeometry(9,.45,12,80),new THREE.MeshStandardMaterial({color:"#536e79",metalness:.7,roughness:.35}));station.add(dock);
@@ -62,8 +62,8 @@ export default function SpaceScene({hull,mission,playing,paused,input,onUpdate,o
    const grid=new THREE.GridHelper(7.8,16,"#223e4b","#182e3a");grid.position.y=-1.263;scene.add(grid);camera.position.set(8,7.5,10);camera.lookAt(0,-.15,0);
   }
   Promise.all([preloadModels(),initializePhysics()]).then(()=>{
-   if(disposed)return;ship.add(hull.origin==="fleet"?cloneModel(hull.id):buildShip(hull));addExhaust(ship,hull);addShipDamageVisuals(ship);
-   if(playing)for(let i=0;i<8;i++){const e=spawnObject(state,i%2?'ice-asteroid':'asteroid',(i%2?1:-1)*(19+i%3*4),Math.sin(i*1.7)*11,-50-i*36,{x:Math.sin(i)*.2});e.radius=2+i%3;e.mass=12+i*2;}
+   if(disposed)return;ship.add(hull.origin==="fleet"?cloneModel(hull.id):buildShip(hull));addExhaust(ship,hull);
+   if(playing)for(let i=0;i<8;i++){const e=spawnObject(state,i%2?'ice-asteroid':'iron-asteroid',(i%2?1:-1)*(19+i%3*4),Math.sin(i*1.7)*11,-50-i*36,{x:Math.sin(i)*.2});e.radius=2+i%3;e.mass=12+i*2;}
 
    renderer.domElement.dataset.modelSource=hull.origin==="fleet"?"blender":"local-custom";ready=true;setLoading(false);readyRef.current(true);
   }).catch(()=>{if(!disposed)errorRef.current("The 3D models or physics engine could not load. Reload the game to try again.");});
@@ -97,6 +97,6 @@ export default function SpaceScene({hull,mission,playing,paused,input,onUpdate,o
   };frame=requestAnimationFrame(loop);
   const lost=(e:Event)=>{e.preventDefault();errorRef.current("3D graphics were interrupted. Reload to return to the hangar.");};renderer.domElement.addEventListener("webglcontextlost",lost);
   return()=>{disposed=true;disposeFlight(state);cancelAnimationFrame(frame);observer.disconnect();renderer.domElement.removeEventListener("webglcontextlost",lost);disposeObject(scene);background.dispose();destination?.dispose();environment.dispose();bloom.dispose();composer.dispose();renderer.dispose();renderer.domElement.remove();};
- },[hull,mission,playing,input]);
+ },[hull,mission,stage,playing,input]);
  return <><div className="space-canvas" ref={container}/><div className="portal-label" ref={portalLabel}>JUMP PORTAL<small>FLY THROUGH THE OPENING</small></div>{loading&&<div className="model-loading" role="status">Warming up flight systems…</div>}</>;
 }

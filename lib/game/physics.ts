@@ -30,15 +30,8 @@ export class FlightPhysics {
   const group=projectile?(e.kind==='shot'?4:8):e.kind==='debris'?16:2;
   const filter=projectile?0:19;
   const base=RAPIER.ColliderDesc.ball(e.radius).setMass(mass).setRestitution(spec?.bounce??.5).setFriction(.04).setCollisionGroups((group<<16)|filter).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
-  if(e.objectType==='ring-station'){
-   for(let i=0;i<24;i++){const a=i*Math.PI/12;const c=this.world.createCollider(RAPIER.ColliderDesc.ball(e.radius*.15).setTranslation(Math.cos(a)*e.radius*.8,Math.sin(a)*e.radius*.8,0).setMass(mass/25).setRestitution(.5).setCollisionGroups((2<<16)|19).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),b);this.colliderIds.set(c.handle,e.id);}
-   const c=this.world.createCollider(RAPIER.ColliderDesc.ball(e.radius*.2).setMass(mass/25).setCollisionGroups((2<<16)|19).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),b);this.colliderIds.set(c.handle,e.id);
-  }else{const c=this.world.createCollider(base.setSensor(projectile||!!spec?.collect||e.objectType==='blackhole'),b);this.colliderIds.set(c.handle,e.id);}
+  const c=this.world.createCollider(base.setSensor(projectile||!!spec?.collect||e.objectType==='blackhole'),b);this.colliderIds.set(c.handle,e.id);
   this.bodies.set(e.id,b);
- }
- sweepRing(id:number,a:{x:number;y:number;z:number},b:{x:number;y:number;z:number},c:{x:number;y:number;z:number},d:{x:number;y:number;z:number},radius:number){
-  const body=this.bodies.get(id);if(!body)return Infinity;const point=body.translation(),start={x:point.x+a.x-c.x,y:point.y+a.y-c.y,z:point.z+a.z-c.z},velocity={x:b.x-d.x-a.x+c.x,y:b.y-d.y-a.y+c.y,z:b.z-d.z-a.z+c.z};let earliest=Infinity;
-  for(let i=0;i<body.numColliders();i++){const hit=body.collider(i).castShape({x:0,y:0,z:0},new RAPIER.Ball(radius),start,{x:0,y:0,z:0,w:1},velocity,1,true);if(hit)earliest=Math.min(earliest,hit.toi);}return earliest;
  }
  remove(id:number){const b=this.bodies.get(id);if(!b)return;for(let i=0;i<b.numColliders();i++)this.colliderIds.delete(b.collider(i).handle);this.world.removeRigidBody(b);this.bodies.delete(id);}
  sync(e:BodyState){const b=this.bodies.get(e.id);if(!b)return;const p=b.translation(),v=b.linvel(),q=b.rotation();e.x=p.x;e.y=p.y;e.z=p.z-this.player.translation().z;e.vx=v.x;e.vy=v.y;e.vz=v.z;e.qx=q.x;e.qy=q.y;e.qz=q.z;e.qw=q.w;}
