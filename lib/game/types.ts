@@ -1,4 +1,4 @@
-export type Hull = { id: string; name: string; role: string; color: string; widths: number[]; thickness: number; engines: number; handling: number; armor: number; origin: "fleet" | "local" | "openai" };
+export type Hull = { id: string; name: string; role: string; color: string; widths: number[]; thickness: number; engines: number; handling: number; armor: number; cruise?:number; origin: "fleet" | "local" | "openai" };
 export const FLEET: Hull[] = [
   { id:"kestrel",name:"Kestrel",role:"Balanced courier",color:"#f2a35c",widths:[.08,.32,.5,1.1,2,2.1,1.65,.8,.6],thickness:.42,engines:2,handling:1,armor:100,origin:"fleet" },
   { id:"wraith",name:"Wraith",role:"Light interceptor",color:"#7be4de",widths:[.06,.2,.35,.46,.65,1.95,2.15,.95,.4],thickness:.28,engines:2,handling:1.3,armor:80,origin:"fleet" },
@@ -6,8 +6,8 @@ export const FLEET: Hull[] = [
 ];
 export type EncounterKind = "asteroid" | "pirate" | "portal";
 /** at is a route-progress coordinate in normal-speed course-seconds, not wall time. */
-export type Encounter = { at:number; kind:EncounterKind; x:number; y:number; count:number };
-export type Mission = { title:string; events:Encounter[]; source:"openai"|"practice"; note:string };
+export type Encounter = { at:number; kind:EncounterKind; x:number; y:number; count:number; points?:{x:number;y:number;radius:number}[]; gap?:{axis:string;center:number;halfWidth:number;x:number;y:number}; portalRadius?:number };
+export type Mission = { title:string; events:Encounter[]; source:"openai"|"practice"; note:string;stage?:number;seed?:number;attempt?:number;challenge?:{tier:number;label:string;waves:number;gapWidth:number;portalRadius:number;pirateMotion:number;pirateInterval:number;volley:number} };
 export const DURATION = 150;
 export const CRUISE_SPEED = 29;
 export const WARP_MAX_SPEED = 2.2;

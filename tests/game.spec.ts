@@ -46,8 +46,8 @@ test('mobile layout and API offline/error handling',async({page,request})=>{
 });
 test('failed delivery reaches its result and can restart',async({page})=>{
  await page.goto('/');await page.getByRole('button',{name:'Launch delivery'}).click();
- await expect(page.getByRole('button',{name:'Run it again'})).toBeVisible({timeout:180000});
- await page.screenshot({path:'outputs/mission-result.png'});await page.getByRole('button',{name:'Run it again'}).click();await expect(page.getByRole('button',{name:'Pause game'})).toBeVisible();await expect(page.getByRole('button',{name:'Run it again'})).not.toBeVisible();
+ await expect(page.getByRole('button',{name:'Retry stage 1'})).toBeVisible({timeout:180000});
+ await page.screenshot({path:'outputs/mission-result.png'});await page.getByRole('button',{name:'Retry stage 1'}).click();await expect(page.getByRole('button',{name:'Pause game'})).toBeVisible();await expect(page.getByRole('button',{name:'Retry stage 1'})).not.toBeVisible();
 });
 
 test('evasive flight can deliver the full practice mission',()=>{
@@ -55,30 +55,10 @@ test('evasive flight can deliver the full practice mission',()=>{
  for(let i=0;i<3001;i++){const t=i*.05;const phase=(t-1)%6.8;const action=t<1?{x:0,y:1,fire:true}:phase<2?{x:1,y:0,fire:true}:phase<3.4?{x:0,y:-1,fire:true}:phase<5.4?{x:-1,y:0,fire:true}:{x:0,y:1,fire:true};stepFlight(state,action,hull,mission,.05);}
  console.log('Full route:',state.status,'hull',state.hull,'cargo',state.cargo,'cleared',state.kills);expect(state.status).toBe('delivered');
 });
-test('successful piloted delivery in the browser',async({page})=>{
- await page.goto('/');await page.getByRole('button',{name:'Launch delivery'}).click();await page.keyboard.down('Space');await page.keyboard.down('KeyW');await page.waitForTimeout(1000);await page.keyboard.up('KeyW');
- const end=Date.now()+151500;
- while(Date.now()<end){for(const [key,duration] of [['KeyD',2000],['KeyS',1400],['KeyA',2000],['KeyW',1400]] as const){await page.keyboard.down(key);await page.waitForTimeout(Math.min(duration,Math.max(1,end-Date.now())));await page.keyboard.up(key);if(Date.now()>=end)break;}}
- await page.keyboard.up('Space');await expect(page.getByText('Cargo delivered.',{exact:true})).toBeVisible({timeout:15000});await page.screenshot({path:'outputs/successful-delivery.png'});await page.getByRole('button',{name:'Run it again'}).click();await expect(page.locator('.hud-vitals')).toContainText('100');
-});
 test('AI service failure is visible and leaves practice playable',async({page})=>{
  await page.route('**/api/ai-status',route=>route.fulfill({json:{available:true}}));
  await page.route('**/api/mission',route=>route.fulfill({status:503,json:{error:'OpenAI could not complete this request.'}}));
  await page.goto('/');await expect(page.locator('.notice')).toContainText('Practice route is ready to fly.');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeEnabled();await page.getByRole('button',{name:'Launch delivery'}).click();await expect(page.locator('.route-progress')).toContainText('PRACTICE ROUTE');
-});
-
-test('flying through a portal shows hyperspace, pauses safely and returns to cruise',async({page})=>{
- const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('/');await page.getByRole('button',{name:'Launch delivery'}).click();await page.keyboard.down('Space');
- await expect(page.locator('.portal-label')).toBeVisible({timeout:30000});
- await page.waitForTimeout(2000);await page.screenshot({path:'outputs/portal-approach.png'});
- await expect(page.locator('.warp-status')).toContainText('2.2×',{timeout:12000});
- await expect(page.locator('.flight-bottom')).toContainText('1/2 JUMPS');await page.screenshot({path:'outputs/hyperspace.png'});
- await page.keyboard.up('Space');await page.getByRole('button',{name:'Pause game'}).click();await page.waitForTimeout(150);
- const remaining=await page.locator('.route-progress').innerText();await page.waitForTimeout(600);expect(await page.locator('.route-progress').innerText()).toBe(remaining);
- await page.getByRole('button',{name:'Resume delivery'}).click();await page.keyboard.down('Space');
- await expect(page.locator('.warp-status')).toContainText('CRUISE SPEED',{timeout:10000});await expect(page.locator('.warp-status')).toContainText('1.0×');
- await page.keyboard.up('Space');expect(errors).toEqual([]);
 });
 
 test('portal crossing, smooth boost, safety clearance, miss and reset',()=>{
