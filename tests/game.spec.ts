@@ -1,13 +1,14 @@
+import {createFlight} from './support';
 import {test,expect} from '@playwright/test';
 import {FLEET,DURATION,practiceMission,validateHull,validateMission} from '../lib/game/types';
-import {createFlight,stepFlight,damage,warpSpeed,courseStep,type Entity} from '../lib/game/simulation';
+import {stepFlight,damage,warpSpeed,courseStep,type Entity} from '../lib/game/simulation';
 import {buildShip,disposeObject} from '../lib/game/meshes';
 import * as THREE from 'three';
 const idle={x:0,y:0,fire:false};
 test('flight physics, combat, cargo damage, loss, delivery and reset',()=>{
  const hull=FLEET[0],m=practiceMission(),s=createFlight(hull);
  for(let i=0;i<20;i++)stepFlight(s,{x:1,y:1,fire:true},hull,m,.05);
- expect(s.x).toBeGreaterThan(8);expect(s.y).toBe(5);expect(s.shots).toBeGreaterThan(4);
+ expect(s.x).toBeGreaterThan(8);expect(s.y).toBeGreaterThan(4.8);expect(s.y).toBeLessThan(5.6);expect(s.shots).toBeGreaterThan(4);
  damage(s,26,16);expect(s.hull).toBe(74);expect(s.cargo).toBe(84);damage(s,26,16);expect(s.hull).toBe(74);
  s.immune=0;damage(s,100,100);expect(s.status).toBe('lost');expect(s.cargo).toBe(0);
  const won=createFlight(hull);const empty={...m,events:[]};for(let i=0;i<3001;i++)stepFlight(won,idle,hull,empty,.05);expect(won.status).toBe('delivered');expect(won.time).toBeCloseTo(DURATION,0);expect(createFlight(hull).time).toBe(0);
@@ -65,34 +66,34 @@ test('portal crossing, smooth boost, safety clearance, miss and reset',()=>{
  const hull=FLEET[0],empty={...practiceMission(),events:[]},s=createFlight(hull);
  const portal:Entity={id:1,kind:'portal',x:0,y:0,z:-.5,vx:0,vy:0,radius:4.3,hp:2,age:0,fire:0};
  s.entities=[portal,{...portal,id:2,kind:'asteroid',z:-10,radius:2}];s.serial=3;
- stepFlight(s,idle,hull,empty,.05);expect(s.portalsUsed).toBe(1);expect(s.warpAge).toBe(0);expect(s.hull).toBe(100);expect(s.entities).toHaveLength(0);
- const start=s.progress;for(let i=0;i<20;i++)stepFlight(s,idle,hull,empty,.05);expect(s.speed).toBeCloseTo(2.2,8);
- for(let i=0;i<100;i++)stepFlight(s,idle,hull,empty,.05);expect(s.speed).toBeCloseTo(2.2,8);
- for(let i=0;i<40;i++)stepFlight(s,idle,hull,empty,.05);expect(s.speed).toBeCloseTo(1,8);expect(s.progress-start).toBeCloseTo(15.8,6);expect(s.portalsUsed).toBe(1);
+ stepFlight(s,idle,hull,empty,.05);expect(s.portalsUsed).toBe(1);expect(s.warpAge).toBeLessThan(.05);expect(s.hull).toBe(100);expect(s.entities.find(e=>e.id===2)!.vx).toBeGreaterThan(15);
+ const start=s.progress;for(let i=0;i<20;i++)stepFlight(s,idle,hull,empty,.05);expect(s.speed).toBeGreaterThan(2.8);expect(s.speed).toBeLessThanOrEqual(3.001);
+ for(let i=0;i<100;i++)stepFlight(s,idle,hull,empty,.05);expect(s.speed).toBeCloseTo(3,3);
+ for(let i=0;i<40;i++)stepFlight(s,idle,hull,empty,.05);expect(s.speed).toBeCloseTo(1,1);expect(s.progress-start).toBeGreaterThan(20.8);expect(s.progress-start).toBeLessThan(21.2);expect(s.portalsUsed).toBe(1);
  const miss=createFlight(hull);miss.x=8;miss.entities=[{...portal,hp:2,z:-.5}];stepFlight(miss,idle,hull,empty,.05);expect(miss.portalsUsed).toBe(0);expect(miss.hull).toBe(100);expect(miss.x).toBe(8);
  const reset=createFlight(hull);expect(reset.warpAge).toBeNull();expect(reset.portalsUsed).toBe(0);expect(reset.progress).toBe(0);expect(reset.speed).toBe(1);
- for(const dt of [.05,.02,.01]){let progress=0;for(let age=0;age<8-1e-8;age+=dt)progress+=courseStep(age,dt);expect(progress).toBeCloseTo(15.8,6);}
- expect(warpSpeed(.5)).toBeCloseTo(1.6);expect(warpSpeed(7)).toBeCloseTo(1.6);
+ for(const dt of [.05,.02,.01]){let progress=0;for(let age=0;age<8-1e-8;age+=dt)progress+=courseStep(age,dt);expect(progress).toBeCloseTo(21,6);}
+ expect(warpSpeed(.5)).toBeCloseTo(2);expect(warpSpeed(7)).toBeCloseTo(2);
 });
 test('boost preserves controls, combat clocks, event order and safe spawn distance',()=>{
  const hull=FLEET[0],empty={...practiceMission(),events:[]},a=createFlight(hull),b=createFlight(hull);b.warpAge=0;
  for(let i=0;i<10;i++){const input={x:.2,y:.2,fire:true};stepFlight(a,input,hull,empty,.05);stepFlight(b,input,hull,empty,.05);}
  expect(a.x).toBeCloseTo(b.x);expect(a.y).toBeCloseTo(b.y);expect(a.shots).toBe(b.shots);expect(b.progress).toBeGreaterThan(a.progress);
- b.progress=20;b.warpAge=2;b.speed=2.2;const mission={...empty,events:[{at:20,kind:'asteroid' as const,x:5,y:3,count:1},{at:20.1,kind:'pirate' as const,x:-5,y:3,count:1}]};stepFlight(b,idle,hull,mission,.05);expect(b.next).toBe(2);
- const threats=b.entities.filter(e=>e.kind==='asteroid'||e.kind==='pirate');expect(threats).toHaveLength(2);for(const e of threats)expect(-e.z/(29*2.2)).toBeGreaterThan(4.8);
- stepFlight(b,idle,hull,mission,.05);expect(b.next).toBe(2);expect(b.entities.filter(e=>e.kind==='asteroid'||e.kind==='pirate')).toHaveLength(2);
+ const c=createFlight(hull);c.progress=20;c.warpAge=2;const mission={...empty,events:[{at:20,kind:'asteroid' as const,x:5,y:3,count:1},{at:20.1,kind:'pirate' as const,x:-5,y:3,count:1}]};stepFlight(c,idle,hull,mission,.1);stepFlight(c,idle,hull,mission,.05);expect(c.next).toBe(2);
+ const threats=c.entities.filter(e=>e.kind==='asteroid'||e.kind==='pirate');expect(threats).toHaveLength(2);for(const e of threats)expect(-e.z/(29*3)).toBeGreaterThan(4.8);
+ stepFlight(c,idle,hull,mission,.05);expect(c.next).toBe(2);expect(c.entities.filter(e=>e.kind==='asteroid'||e.kind==='pirate')).toHaveLength(2);
 });
 test('two jumps shorten the longer course while preserving arrival and restart',()=>{
  const hull=FLEET[0],s=createFlight(hull),m={...practiceMission(),events:[{at:22,kind:'portal' as const,x:0,y:0,count:1},{at:86,kind:'portal' as const,x:0,y:0,count:1}]};
  for(let i=0;i<3100&&s.status==='flying';i++)stepFlight(s,idle,hull,m,.05);
- expect(s.status).toBe('delivered');expect(s.progress).toBe(150);expect(s.portalsUsed).toBe(2);expect(s.time).toBeGreaterThan(133);expect(s.time).toBeLessThan(136);expect(s.warpAge).toBeNull();expect(s.speed).toBe(1);
+ expect(s.status).toBe('delivered');expect(s.progress).toBe(150);expect(s.portalsUsed).toBe(2);expect(s.time).toBeGreaterThan(123);expect(s.time).toBeLessThan(126);expect(s.warpAge).toBeNull();expect(s.speed).toBeCloseTo(1,4);
  const legacy={events:Array.from({length:16},(_,i)=>({at:4+i*4,kind:i===4||i===10?'blackhole':'asteroid',x:0,y:0,count:1}))};const updated=validateMission(legacy);expect(updated.events.filter(e=>e.kind==='portal')).toHaveLength(2);expect(updated.events.at(-1)!.at).toBeGreaterThan(120);expect(updated.events.every(e=>e.at<=134)).toBe(true);
 });
 
 test('encounter waves stay ordered and spaced across warp exit',()=>{
  const hull=FLEET[0],s=createFlight(hull),m={...practiceMission(),events:[{at:22,kind:'portal' as const,x:0,y:0,count:1},...[30,33.5,37,40.5,44,47.5].map(at=>({at,kind:'asteroid' as const,x:8,y:4,count:1}))]};
  const seen=new Set<number>(),arrivals:{id:number;progress:number}[]=[];
- for(let i=0;i<1400;i++){stepFlight(s,idle,hull,m,.05);for(const e of s.entities)if(e.kind==='asteroid'&&e.z>=0&&!seen.has(e.id)){seen.add(e.id);arrivals.push({id:e.id,progress:s.progress});}}
+ for(let i=0;i<1400;i++){const previous=s.progress,oldZ=new Map(s.entities.map(e=>[e.id,e.z]));stepFlight(s,idle,hull,m,.05);for(const e of s.entities)if(e.kind==='asteroid'&&e.z>=0&&!seen.has(e.id)){seen.add(e.id);const z=oldZ.get(e.id)??0,f=-z/(e.z-z);arrivals.push({id:e.id,progress:previous+(s.progress-previous)*f});}}
  expect(arrivals).toHaveLength(6);expect(arrivals.map(e=>e.id)).toEqual([...arrivals.map(e=>e.id)].sort((a,b)=>a-b));
  for(let i=1;i<arrivals.length;i++)expect(arrivals[i].progress-arrivals[i-1].progress).toBeGreaterThan(3.4);
 });

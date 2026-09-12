@@ -1,0 +1,326 @@
+[
+  {
+    "name": "iron-asteroid",
+    "triangles": 400,
+    "bytes": 35468,
+    "sourceParts": 5,
+    "drawCalls": 2,
+    "min": [
+      -0.92083,
+      -0.75291,
+      -0.84953
+    ],
+    "max": [
+      0.92083,
+      0.75291,
+      0.84953
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "ice-asteroid",
+    "triangles": 110,
+    "bytes": 12832,
+    "sourceParts": 4,
+    "drawCalls": 2,
+    "min": [
+      -0.75937,
+      -0.86947,
+      -0.63495
+    ],
+    "max": [
+      0.75937,
+      0.86947,
+      0.63495
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "volatile-rock",
+    "triangles": 800,
+    "bytes": 66680,
+    "sourceParts": 7,
+    "drawCalls": 2,
+    "min": [
+      -0.9477,
+      -0.81877,
+      -0.94545
+    ],
+    "max": [
+      0.9477,
+      0.81877,
+      0.94545
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "crystal-cluster",
+    "triangles": 260,
+    "bytes": 26120,
+    "sourceParts": 11,
+    "drawCalls": 4,
+    "min": [
+      -0.62602,
+      -0.89013,
+      -0.61739
+    ],
+    "max": [
+      0.62602,
+      0.89013,
+      0.61739
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "comet",
+    "triangles": 130,
+    "bytes": 15160,
+    "sourceParts": 6,
+    "drawCalls": 3,
+    "min": [
+      -0.34277,
+      -0.30516,
+      -0.98294
+    ],
+    "max": [
+      0.34277,
+      0.30516,
+      0.98294
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "derelict",
+    "triangles": 168,
+    "bytes": 19604,
+    "sourceParts": 9,
+    "drawCalls": 5,
+    "min": [
+      -0.83497,
+      -0.34507,
+      -0.93845
+    ],
+    "max": [
+      0.83497,
+      0.34507,
+      0.93845
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "cargo-crate",
+    "triangles": 168,
+    "bytes": 19320,
+    "sourceParts": 14,
+    "drawCalls": 5,
+    "min": [
+      -0.62654,
+      -0.51323,
+      -0.61188
+    ],
+    "max": [
+      0.62654,
+      0.51323,
+      0.61188
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "fuel-tank",
+    "triangles": 544,
+    "bytes": 48800,
+    "sourceParts": 10,
+    "drawCalls": 5,
+    "min": [
+      -0.46409,
+      -0.47817,
+      -0.9871
+    ],
+    "max": [
+      0.46409,
+      0.47817,
+      0.9871
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "proximity-mine",
+    "triangles": 528,
+    "bytes": 47004,
+    "sourceParts": 18,
+    "drawCalls": 4,
+    "min": [
+      -0.9994,
+      -0.9994,
+      -0.9994
+    ],
+    "max": [
+      0.9994,
+      0.9994,
+      0.9994
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "repair-pod",
+    "triangles": 260,
+    "bytes": 27388,
+    "sourceParts": 11,
+    "drawCalls": 6,
+    "min": [
+      -0.73299,
+      -0.6773,
+      -0.85813
+    ],
+    "max": [
+      0.73299,
+      0.6773,
+      0.85813
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "shield-buoy",
+    "triangles": 528,
+    "bytes": 46860,
+    "sourceParts": 7,
+    "drawCalls": 4,
+    "min": [
+      -0.99993,
+      -0.98473,
+      -0.29266
+    ],
+    "max": [
+      0.99993,
+      0.98473,
+      0.29266
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "sputnik",
+    "triangles": 660,
+    "bytes": 57336,
+    "sourceParts": 11,
+    "drawCalls": 4,
+    "min": [
+      -0.61583,
+      -0.387,
+      -0.71583
+    ],
+    "max": [
+      0.61583,
+      0.387,
+      0.71583
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "solar-satellite",
+    "triangles": 476,
+    "bytes": 43472,
+    "sourceParts": 33,
+    "drawCalls": 5,
+    "min": [
+      -0.93745,
+      -0.34974,
+      -0.28484
+    ],
+    "max": [
+      0.93745,
+      0.34974,
+      0.28484
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "missile",
+    "triangles": 186,
+    "bytes": 20880,
+    "sourceParts": 9,
+    "drawCalls": 5,
+    "min": [
+      -0.46729,
+      -0.46729,
+      -1.0
+    ],
+    "max": [
+      0.46729,
+      0.46729,
+      1.0
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "saucer-cruiser",
+    "triangles": 700,
+    "bytes": 62604,
+    "sourceParts": 13,
+    "drawCalls": 7,
+    "min": [
+      -0.63879,
+      -0.20006,
+      -0.7862
+    ],
+    "max": [
+      0.63879,
+      0.20006,
+      0.7862
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "twinwing-fighter",
+    "triangles": 296,
+    "bytes": 31216,
+    "sourceParts": 11,
+    "drawCalls": 7,
+    "min": [
+      -0.64457,
+      -0.61594,
+      -0.52485
+    ],
+    "max": [
+      0.64457,
+      0.61594,
+      0.52485
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "wedge-destroyer",
+    "triangles": 376,
+    "bytes": 34916,
+    "sourceParts": 14,
+    "drawCalls": 4,
+    "min": [
+      -0.72287,
+      -0.25524,
+      -0.87828
+    ],
+    "max": [
+      0.72287,
+      0.25524,
+      0.87828
+    ],
+    "radius": 1.0
+  },
+  {
+    "name": "ring-station",
+    "triangles": 1008,
+    "bytes": 86760,
+    "sourceParts": 22,
+    "drawCalls": 7,
+    "min": [
+      -0.96649,
+      -0.33726,
+      -0.95642
+    ],
+    "max": [
+      0.96649,
+      0.33726,
+      0.95642
+    ],
+    "radius": 1.0
+  }
+]

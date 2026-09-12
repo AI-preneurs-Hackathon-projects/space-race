@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-const MODELS=["kestrel","wraith","atlas","asteroid-1","asteroid-2","asteroid-3"] as const;
+import { ENCOUNTER_MODELS } from "./objects";
+const MODELS=[...new Set(["kestrel","wraith","atlas","asteroid-1","asteroid-2","asteroid-3",...ENCOUNTER_MODELS])];
 const cache=new Map<string,THREE.Group>();
 let pending:Promise<void>|null=null;
 export function preloadModels(){
