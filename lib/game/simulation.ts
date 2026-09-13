@@ -54,8 +54,9 @@ function spawnEncounters(s:Flight,mission:Mission,p:FlightPhysics){
  while(s.next<mission.events.length&&s.progress>=mission.events[s.next].at){const e=mission.events[s.next++];if(e.objectType!==undefined&&!isObjectType(e.objectType))continue;const id=(isObjectType(e.objectType)?e.objectType:e.kind==='pirate'?'pirate':e.kind==='portal'?'portal':DEFAULT_ROCK);
   if(s.warpAge===null)s.warning=id==='portal'?'Cyan jump gate ahead. Align with the opening.':`${OBJECTS[id].name} ahead. ${OBJECTS[id].description}`;
   const peak=s.warpAge===null?1:WARP_MAX_SPEED,lead=Math.max(145*s.cruise*peak,isShip(id)?((mission.challenge?.bulletSpeed??29)+29*s.cruise)*(1.4+(OBJECTS[id].weapons?.warmup??.6)+.85):0)+(id==='missile'?100:0),spacing=3.5;
-  // Route spacing stays in course units. Multiplying it by warp speed queued later gates beyond the visibility/culling range.
-  const arrival=Math.max(e.at+lead/CRUISE_SPEED,s.lastEncounterArrival+spacing);s.lastEncounterArrival=arrival;if(mission.challenge&&arrival>138)continue;
+  // Generated stages use fixed course positions, spawned 22 units ahead. Warp cannot queue or discard late waves.
+  // Legacy practice/AI events retain reaction-lead scheduling.
+  const arrival=e.arrival??Math.max(e.at+lead/CRUISE_SPEED,s.lastEncounterArrival+spacing);s.lastEncounterArrival=arrival;if(e.arrival===undefined&&mission.challenge&&arrival>138)continue;
   const pts=e.points??Array.from({length:e.count},(_,i)=>({x:e.x+i*3.5,y:e.y-i*2,radius:id==='portal'?(e.portalRadius??4.3):OBJECTS[id].radius}));
   for(let i=0;i<pts.length&&s.entities.length<MAX_ENTITIES-12;i++){const pt=pts[i],o=specEntity(s,id,pt.x,pt.y,-(arrival-s.progress)*CRUISE_SPEED-(e.points?0:i*15),s.next-1);o.radius=pt.radius;
    o.vx=e.drift??(!e.points&&!isField(id)?Math.sin(o.id)*.22:0);o.vy=!e.points&&!isField(id)?Math.cos(o.id)*.12:0;if(id==='missile')o.vz=20;s.entities.push(o);

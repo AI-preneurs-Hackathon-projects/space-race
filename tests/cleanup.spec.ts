@@ -53,6 +53,6 @@ test('all preset ships render cleanly in hangar and flight, retain firing, and s
  for(const name of ['Crystal cluster','Basalt asteroid','Survey satellite','Orbital relay','Proximity mine','Drifting wreck','Ringed planetoid','Ice comet'])await expect(page.locator('.guide-grid')).not.toContainText(name);
  for(const id of [...SHIP_TYPES,'ice-asteroid','fuel-tank'] as ObjectType[])await expect(page.locator('.guide-grid')).toContainText(OBJECTS[id].name);
  for(const model of ['asteroid-1','asteroid-2','asteroid-3',...removed.slice(1)])expect(models).not.toContain(`/models/${model}.glb`);
- expect(models.size).toBe(15);expect(errors).toEqual([]);await page.screenshot({path:'outputs/cleanup-guide-desktop.png'});
+ expect(models.size).toBe(16);expect(errors).toEqual([]);await page.screenshot({path:'outputs/cleanup-guide-desktop.png'});
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'outputs/cleanup-guide-mobile.png'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });

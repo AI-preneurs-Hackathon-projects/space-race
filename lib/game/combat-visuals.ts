@@ -7,15 +7,18 @@ import { typeOf, type Entity, type Flight, type FlightEffect } from './simulatio
 const impactColor=new THREE.Color('#ffb58c');
 const glow=(color:string,opacity=.8)=>new THREE.MeshBasicMaterial({color:new THREE.Color(color).multiplyScalar(1.8),transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide});
 function fieldMesh(e:Entity){
- const id=typeOf(e),spec=OBJECTS[id],g=new THREE.Group();
- const core=new THREE.Mesh(new THREE.SphereGeometry(1,32,20),id==='blackhole'?new THREE.MeshBasicMaterial({color:'#010108'}):new THREE.MeshStandardMaterial({color:spec.color,roughness:id==='moon'?.95:.55,metalness:id==='repulsor'?.8:.1,emissive:id==='repulsor'?'#1c7766':'#000000',emissiveIntensity:.6}));g.add(core);
- if(id==='moon'){const craters=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.18,1),new THREE.MeshStandardMaterial({color:'#647585',roughness:1}),14);const dummy=new THREE.Object3D();for(let i=0;i<14;i++){const a=i*2.399,y=1-2*(i+.5)/14,r=Math.sqrt(1-y*y);dummy.position.set(Math.cos(a)*r*.92,y*.92,Math.sin(a)*r*.92);dummy.scale.setScalar(.5+(i%3)*.25);dummy.updateMatrix();craters.setMatrixAt(i,dummy.matrix);}g.add(craters);}
- if(id==='blackhole'||id==='repulsor'){
-  const rings=id==='blackhole'?3:2;for(let i=0;i<rings;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(1.25+i*.28,id==='blackhole'?.025:.06,6,80),glow(id==='blackhole'?i%2?'#fff5c0':'#ffb16f':spec.color,.55-i*.12));ring.rotation.x=id==='repulsor'?i*Math.PI/2:1.05;ring.rotation.y=.25;ring.name='field_ring';g.add(ring);}
+ const id=typeOf(e),g=new THREE.Group();
+ if(id==='moon')g.add(cloneModel('rogue-moon'));
+ else if(id==='repulsor'){
+  const core=cloneModel('iron-asteroid');core.traverse(o=>{if(o instanceof THREE.Mesh){const m=o.material as THREE.MeshStandardMaterial;m.color.set('#75a995');m.metalness=.35;m.emissive.set('#164236');m.emissiveIntensity=.2;}});g.add(core);
+ }else{
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(1,48,32),new THREE.MeshBasicMaterial({color:'#010108'})));
+  // Diffuse, uneven accretion dust, with no rigid orbit lines or corridor-sized arcs.
+  const positions=new Float32Array(450*3),colors=new Float32Array(450*3);
+  for(let i=0;i<450;i++){const a=i*2.39996,r=1.16+(.5+.5*Math.sin(i*71.17))*.85;positions[i*3]=Math.cos(a)*r;positions[i*3+1]=Math.sin(a)*r*.28+Math.sin(i*12.4)*.065;positions[i*3+2]=Math.sin(a)*r*.72;const c=new THREE.Color().setHSL(.065+.035*Math.sin(i),.5,.25+.25*Math.sin(i*1.7)**2);colors.set([c.r,c.g,c.b],i*3);}
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(positions,3));geo.setAttribute('color',new THREE.BufferAttribute(colors,3));
+  g.add(new THREE.Points(geo,new THREE.PointsMaterial({size:.04,vertexColors:true,transparent:true,opacity:.4,depthWrite:false,blending:THREE.AdditiveBlending})));
  }
- // Faint orbit arcs show the force direction, without covering the flight corridor.
- const flow=new THREE.Group();flow.name='field_flow';
- for(let i=0;i<3;i++){const arc=new THREE.Mesh(new THREE.TorusGeometry(2.2+i*.6,.009,3,40,Math.PI*1.25),glow(spec.color,.25));arc.rotation.set(.4+i*.6,.3,i*2.1);flow.add(arc);}g.add(flow);
  g.scale.setScalar(e.radius);return g;
 }
 export function buildEncounterVisual(e:Entity){
@@ -41,7 +44,6 @@ export function updateEncounterVisual(e:Entity,obj:THREE.Object3D,time:number,ca
  const bar=obj.getObjectByName('healthbar');if(bar){bar.visible=(e.hitAge??0)>0&&e.hp>0&&!isField(typeOf(e))&&e.z< -2&&e.z> -150;bar.quaternion.copy(camera.quaternion);const fill=bar.getObjectByName('fill')!;fill.scale.x=Math.max(0,e.hp/(e.maxHp??OBJECTS[typeOf(e)].hp));fill.position.x=-(1-fill.scale.x)*1.1;}
  const flash=Math.min(1,(e.hitAge??0)*5),damage=e.hp/(e.maxHp??OBJECTS[typeOf(e)].hp);
  for(const m of (obj.userData.materials??[]) as THREE.MeshStandardMaterial[]){m.color.copy(m.userData.baseColor).multiplyScalar(.55+.45*Math.max(0,damage));m.emissive.copy(m.userData.baseEmissive).lerp(impactColor,flash);m.emissiveIntensity=(m.userData.baseIntensity??0)+flash*2;}
- const flow=obj.getObjectByName('field_flow');if(flow)flow.rotation.z=time*(typeOf(e)==='repulsor'?-.35:.35);
 }
 function sparkMaterial(color:string){return new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{color:{value:new THREE.Color(color)},alpha:{value:1},size:{value:5}},vertexShader:'uniform float size; void main(){vec4 mv=modelViewMatrix*vec4(position,1.0); gl_Position=projectionMatrix*mv; gl_PointSize=clamp(size*120.0/max(1.0,-mv.z),1.0,35.0);}',fragmentShader:'uniform vec3 color; uniform float alpha; void main(){float d=length(gl_PointCoord-.5)*2.0;gl_FragColor=vec4(color*2.0,alpha*(1.0-smoothstep(0.05,1.0,d)));}'});}
 export function buildEffectVisual(fx:FlightEffect){

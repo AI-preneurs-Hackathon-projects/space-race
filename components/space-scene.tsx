@@ -49,19 +49,16 @@ export default function SpaceScene({hull,mission,stage,playing,paused,input,onUp
   for(let i=0;i<starCount;i++){const angle=Math.random()*Math.PI*2,radius=12+Math.random()*115;starCenters[i*3]=Math.cos(angle)*radius;starCenters[i*3+1]=Math.sin(angle)*radius;starCenters[i*3+2]=-Math.random()*480;}
   starGeometry.setAttribute("position",new THREE.BufferAttribute(starLines,3));const starMaterial=new THREE.LineBasicMaterial({color:profile.star,transparent:true,opacity:.65,blending:THREE.AdditiveBlending,depthWrite:false});const stars=new THREE.LineSegments(starGeometry,starMaterial);stars.frustumCulled=false;scene.add(stars);
   const destination=playing?buildDestinationPlanet(profile,mobile):null;if(destination)scene.add(destination.group);
-  const rings:THREE.Mesh[]=[];const station=new THREE.Group();
+  const station=new THREE.Group();
   if(playing){
-   const dock=new THREE.Mesh(new THREE.TorusGeometry(9,.45,12,80),new THREE.MeshStandardMaterial({color:"#536e79",metalness:.7,roughness:.35}));station.add(dock);
-   const beacon=new THREE.Mesh(new THREE.TorusGeometry(8.5,.08,8,80),new THREE.MeshBasicMaterial({color:new THREE.Color("#a4ffe3").multiplyScalar(2)}));station.add(beacon);
-   for(let i=0;i<4;i++){const arm=new THREE.Mesh(new THREE.BoxGeometry(3,2,5),new THREE.MeshStandardMaterial({color:"#273f4b",metalness:.5,roughness:.5}));const angle=i*Math.PI/2;arm.position.set(Math.cos(angle)*11,Math.sin(angle)*11,0);arm.rotation.z=angle;station.add(arm);}station.visible=false;scene.add(station);
-   for(let i=0;i<6;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(15,.025,4,64),new THREE.MeshBasicMaterial({color:"#376277",transparent:true,opacity:.2}));ring.position.z=-i*60;scene.add(ring);rings.push(ring);}
+   const terminal=buildPortal();terminal.scale.setScalar(2);station.add(terminal);station.name='checkpoint_gate';station.visible=false;scene.add(station);
    camera.position.set(0,3.5,12);camera.lookAt(0,0,-35);
   }else{
    const base=new THREE.Mesh(new THREE.CylinderGeometry(4.1,4.22,.25,96),new THREE.MeshStandardMaterial({color:"#10212a",roughness:.75,metalness:.15}));base.position.y=-1.4;base.receiveShadow=true;scene.add(base);
    for(const r of [3.9,4.1]){const ring=new THREE.Mesh(new THREE.TorusGeometry(r,.018,8,100),new THREE.MeshBasicMaterial({color:new THREE.Color("#80bbcb").multiplyScalar(1.3)}));ring.rotation.x=Math.PI/2;ring.position.y=-1.265;scene.add(ring);}
    const grid=new THREE.GridHelper(7.8,16,"#223e4b","#182e3a");grid.position.y=-1.263;scene.add(grid);camera.position.set(8,7.5,10);camera.lookAt(0,-.15,0);
   }
-  Promise.all([preloadModels(),initializePhysics()]).then(()=>{
+  Promise.all([preloadModels(),initializePhysics(),destination?.ready]).then(()=>{
    if(disposed)return;ship.add(hull.origin==="fleet"?cloneModel(hull.id):buildShip(hull));addExhaust(ship,hull);
    if(playing)for(let i=0;i<8;i++){const e=spawnObject(state,i%2?'ice-asteroid':'iron-asteroid',(i%2?1:-1)*(19+i%3*4),Math.sin(i*1.7)*11,-50-i*36,{x:Math.sin(i)*.2});e.radius=2+i%3;e.mass=12+i*2;}
 
@@ -75,11 +72,10 @@ export default function SpaceScene({hull,mission,stage,playing,paused,input,onUp
    const active=ready&&!pauseRef.current;let advance=0;if(active)elapsed+=dt;
    if(playing&&ready){
     const before=state.progress;if(active)stepFlight(state,input.current,hull,mission,dt);advance=state.progress-before;
-    destination?.update(state.progress,elapsed);station.visible=state.progress>ARRIVAL_START;station.position.z=-(DURATION-state.progress)*CRUISE_SPEED-18;station.rotation.z=.2;
+    destination?.update(state.progress,elapsed);station.visible=state.progress>ARRIVAL_START;station.position.z=-(DURATION-state.progress)*CRUISE_SPEED-18;station.rotation.z=.2;const terminalMembrane=station.getObjectByName('portal_membrane') as THREE.Mesh<THREE.BufferGeometry,THREE.ShaderMaterial>;terminalMembrane.material.uniforms.time.value=elapsed;
     ship.position.set(state.x,state.y,Math.exp(-state.shotAge*32)*.18);ship.rotation.z=THREE.MathUtils.lerp(ship.rotation.z,-state.vx*.026,.1);ship.rotation.x=THREE.MathUtils.lerp(ship.rotation.x,state.vy*.013,.1);updateShipDamage(ship,damageTrail,state,elapsed);
     const follow=camera.aspect<.8?.86:.43;camera.position.x=THREE.MathUtils.lerp(camera.position.x,state.x*follow,.08);camera.position.y=THREE.MathUtils.lerp(camera.position.y,3.5+state.y*.42,.08);camera.lookAt(state.x*follow,state.y*.3,-35);
     const desiredFov=65+Math.max(0,state.speed/state.cruise-1)*8;camera.fov=THREE.MathUtils.lerp(camera.fov,desiredFov,.1);camera.updateProjectionMatrix();bloom.strength=.25+(state.speed-1)*.18;
-    for(const ring of rings){ring.position.z+=CRUISE_SPEED*advance;if(ring.position.z>15)ring.position.z-=360;}
     const ids=new Set(state.entities.map(e=>e.id));for(const [id,obj] of meshes)if(!ids.has(id)){scene.remove(obj);disposeObject(obj);meshes.delete(id);}
     let nearestPortal:typeof state.entities[number]|undefined;
     for(const e of state.entities){let obj=meshes.get(e.id);if(!obj){obj=buildEncounterVisual(e);scene.add(obj);meshes.set(e.id,obj);}updateEncounterVisual(e,obj,elapsed,camera);if(e.kind==='portal'&&e.z< -8&&(!nearestPortal||e.z>nearestPortal.z))nearestPortal=e;}

@@ -51,3 +51,7 @@ next-env.d.ts
 # Blender backup files; keep authored .blend sources.
 *.blend1
 *.blend2
+
+# Local Python compilation cache
+__pycache__/
+*.pyc
