@@ -5,16 +5,16 @@ import {FLEET,practiceMission,validateMission,type Mission} from '../lib/game/ty
 import {OBJECT_TYPES,OBJECTS,SHIP_TYPES,ENCOUNTER_MODELS,type ObjectType} from '../lib/game/objects';
 import {stageMission} from '../lib/game/progression';
 const idle={x:0,y:0,fire:false};
-const removed=['asteroid','crystal-cluster','sputnik','ring-station','proximity-mine','derelict','planet'];
+const removed=['asteroid','crystal-cluster','sputnik','ring-station','proximity-mine','derelict','planet','comet'];
 function advance(s:ReturnType<typeof createFlight>,mission:Mission,seconds:number,input:Input=idle,hull=FLEET[0]){for(let i=0;i<Math.round(seconds*60);i++)stepFlight(s,input,hull,mission,1/60);}
 
-test('the seven retired objects cannot enter stages, legacy fallbacks, or authored encounters',()=>{
- expect(OBJECT_TYPES).toHaveLength(18);expect(SHIP_TYPES).toHaveLength(4);expect(OBJECT_TYPES).toContain('fuel-tank');
+test('the eight retired objects cannot enter stages, legacy fallbacks, or authored encounters',()=>{
+ expect(OBJECT_TYPES).toHaveLength(17);expect(SHIP_TYPES).toHaveLength(4);expect(OBJECT_TYPES).toContain('fuel-tank');expect(OBJECT_TYPES).toContain('ice-asteroid');
  for(const id of removed){expect(OBJECT_TYPES).not.toContain(id);expect(Object.keys(OBJECTS)).not.toContain(id);}
  for(const id of ['asteroid-1','asteroid-2','asteroid-3',...removed.slice(1)])expect(ENCOUNTER_MODELS).not.toContain(id);
  for(const stage of [1,4,9,50])for(let seed=0;seed<30;seed++)for(const e of stageMission(stage,seed).events){expect(removed).not.toContain(e.objectType);expect(removed).not.toContain(e.escort);}
  for(const m of [practiceMission(),validateMission(practiceMission())]){const s=createFlight(FLEET[0]);advance(s,m,6);expect(s.entities.length).toBeGreaterThan(0);for(const e of s.entities)expect(removed).not.toContain(typeOf(e));}
- const s=createFlight(FLEET[0]),m:Mission={...practiceMission(),events:removed.map((objectType,i)=>({at:0,kind:'object',objectType:objectType as ObjectType,x:5,y:3,count:1}))};advance(s,m,.1);expect(s.entities).toHaveLength(0);expect(s.next).toBe(7);
+ const s=createFlight(FLEET[0]),m:Mission={...practiceMission(),events:removed.map((objectType,i)=>({at:0,kind:'object',objectType:objectType as ObjectType,x:5,y:3,count:1}))};advance(s,m,.1);expect(s.entities).toHaveLength(0);expect(s.next).toBe(8);
 });
 
 for(const id of SHIP_TYPES){
@@ -49,10 +49,10 @@ test('all preset ships render cleanly in hangar and flight, retain firing, and s
   await page.keyboard.down('Space');await page.waitForTimeout(350);const raw=await page.locator('canvas').getAttribute('data-flight-state');expect(JSON.parse(raw!).entities.some((e:{kind:string})=>e.kind==='shot')).toBe(true);await page.keyboard.up('Space');
   await page.getByRole('button',{name:'Pause game'}).click();await page.waitForTimeout(150);const p=await page.locator('canvas').getAttribute('data-progress');await page.waitForTimeout(200);expect(await page.locator('canvas').getAttribute('data-progress')).toBe(p);await page.getByRole('button',{name:'Return to hangar'}).click();
  }
- await page.getByRole('button',{name:/Field guide · 18 objects/}).click();await expect(page.locator('.guide-grid article')).toHaveCount(18);
- for(const name of ['Crystal cluster','Basalt asteroid','Survey satellite','Orbital relay','Proximity mine','Drifting wreck','Ringed planetoid'])await expect(page.locator('.guide-grid')).not.toContainText(name);
- for(const id of SHIP_TYPES)await expect(page.locator('.guide-grid')).toContainText(OBJECTS[id].name);
+ await page.getByRole('button',{name:/Field guide · 17 objects/}).click();await expect(page.locator('.guide-grid article')).toHaveCount(17);
+ for(const name of ['Crystal cluster','Basalt asteroid','Survey satellite','Orbital relay','Proximity mine','Drifting wreck','Ringed planetoid','Ice comet'])await expect(page.locator('.guide-grid')).not.toContainText(name);
+ for(const id of [...SHIP_TYPES,'ice-asteroid','fuel-tank'] as ObjectType[])await expect(page.locator('.guide-grid')).toContainText(OBJECTS[id].name);
  for(const model of ['asteroid-1','asteroid-2','asteroid-3',...removed.slice(1)])expect(models).not.toContain(`/models/${model}.glb`);
- expect(models.size).toBe(16);expect(errors).toEqual([]);await page.screenshot({path:'outputs/cleanup-guide-desktop.png'});
+ expect(models.size).toBe(15);expect(errors).toEqual([]);await page.screenshot({path:'outputs/cleanup-guide-desktop.png'});
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'outputs/cleanup-guide-mobile.png'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });

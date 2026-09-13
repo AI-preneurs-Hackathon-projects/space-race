@@ -12,7 +12,7 @@ A 3D cargo flight game with React, Three.js, Rapier rigid-body physics, and a Cl
 - Collect repair capsules, cargo caches, and shield buoys. Damaged ships show smoke and, at critical hull, fire; black overlay patches and detached front lights are removed.
 - Fly through cyan jump openings for a real 3× speed boost. Speed, distance gained, route progress and approaching scenery all agree with physical displacement.
 - Clear a stage to choose +15 armor (five levels) or +5% cruise (four levels). Retry keeps earned upgrades; reload resets session progress and custom ships.
-- Open the **Field guide · 18 objects** in the hangar for recognizable models and each object's behavior.
+- Open the **Field guide · 17 objects** in the hangar for recognizable models and each object's behavior.
 
 ## Interacting space physics
 
@@ -40,7 +40,7 @@ Focused tuning runs use eight fixed seeds at stages 1, 9 and 25 with identical u
 
 ## Objects and assets
 
-The catalog in `lib/game/objects.ts` drives physics, encounters, rendering and the field guide. Its 18 active types are iron and ice asteroids; volatile rock; comet; cargo cache; fuel tank; repair pod; shield buoy; solar relay; seeker rocket; raider; saucer cruiser; twin-wing fighter; wedge destroyer; moon; black hole; repulsor; and jump gate. Basalt asteroid, crystal cluster, survey satellite, orbital relay, proximity mine, drifting wreck and ringed planetoid have been retired from the catalog, authored stages and fallback spawning. Their source art remains archived; runtime model loading uses only the active types and preset fleet.
+The catalog in `lib/game/objects.ts` drives physics, encounters, rendering and the field guide. Its 17 active types are iron and ice asteroids; volatile rock; cargo cache; fuel tank; repair pod; shield buoy; solar relay; seeker rocket; raider; saucer cruiser; twin-wing fighter; wedge destroyer; moon; black hole; repulsor; and jump gate. Basalt asteroid, crystal cluster, survey satellite, orbital relay, proximity mine, drifting wreck, ringed planetoid and ice comet have been retired from the catalog, authored stages and fallback spawning. Ice Asteroids and Fuel Canisters remain active. The former comet encounter slot uses an Ice Asteroid, preserving wave timing and encounter pressure. Retired source art remains archived; runtime model loading uses only the active types and preset fleet.
 
 The original Blender fleet design and exhaust are unchanged; the original three asteroid GLBs remain as inactive source assets. Eighteen new original GLBs add 7,598 triangles and about 702 KB in total, with 2–7 material draw calls each. New enemy silhouettes use familiar science-fiction archetypes with original geometry and no third-party models or logos. Fields, smoke, weapon flashes, hit sparks, blast rings and shield effects are rendered locally in Three.js.
 

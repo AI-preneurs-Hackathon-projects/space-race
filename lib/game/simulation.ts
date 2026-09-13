@@ -58,7 +58,7 @@ function spawnEncounters(s:Flight,mission:Mission,p:FlightPhysics){
   const arrival=Math.max(e.at+lead/CRUISE_SPEED,s.lastEncounterArrival+spacing);s.lastEncounterArrival=arrival;if(mission.challenge&&arrival>138)continue;
   const pts=e.points??Array.from({length:e.count},(_,i)=>({x:e.x+i*3.5,y:e.y-i*2,radius:id==='portal'?(e.portalRadius??4.3):OBJECTS[id].radius}));
   for(let i=0;i<pts.length&&s.entities.length<MAX_ENTITIES-12;i++){const pt=pts[i],o=specEntity(s,id,pt.x,pt.y,-(arrival-s.progress)*CRUISE_SPEED-(e.points?0:i*15),s.next-1);o.radius=pt.radius;
-   o.vx=e.drift??(id==='comet'?-Math.sign(pt.x||1)*2:!e.points&&!isField(id)?Math.sin(o.id)*.22:0);o.vy=!e.points&&!isField(id)?Math.cos(o.id)*.12:0;if(id==='missile')o.vz=20;s.entities.push(o);
+   o.vx=e.drift??(!e.points&&!isField(id)?Math.sin(o.id)*.22:0);o.vy=!e.points&&!isField(id)?Math.cos(o.id)*.12:0;if(id==='missile')o.vz=20;s.entities.push(o);
   }
   if(e.escort&&isObjectType(e.escort)&&s.entities.length<MAX_ENTITIES-8)s.entities.push(specEntity(s,e.escort,e.x+3.6,e.y,-(arrival-s.progress)*CRUISE_SPEED+1,s.next-1));
  }

@@ -1,5 +1,5 @@
 /** One catalog drives encounter selection, physics, rendering and the field guide. */
-export const OBJECT_TYPES = ['iron-asteroid','ice-asteroid','volatile-rock','comet','cargo-crate','fuel-tank','repair-pod','shield-buoy','solar-satellite','missile','pirate','saucer-cruiser','twinwing-fighter','wedge-destroyer','moon','blackhole','repulsor','portal'] as const;
+export const OBJECT_TYPES = ['iron-asteroid','ice-asteroid','volatile-rock','cargo-crate','fuel-tank','repair-pod','shield-buoy','solar-satellite','missile','pirate','saucer-cruiser','twinwing-fighter','wedge-destroyer','moon','blackhole','repulsor','portal'] as const;
 export type ObjectType = typeof OBJECT_TYPES[number];
 export const DEFAULT_ROCK:ObjectType='iron-asteroid';
 export const isObjectType=(value:unknown):value is ObjectType=>typeof value==='string'&&(OBJECT_TYPES as readonly string[]).includes(value);
@@ -8,7 +8,6 @@ export const OBJECTS:Record<ObjectType,ObjectSpec> = {
  'iron-asteroid':{name:'Iron asteroid',family:'rock',color:'#97adb9',radius:1.5,mass:18,hp:5,bounce:.72,model:'iron-asteroid',blast:3.3,blastDamage:1,description:'Heavy armor and a hard rebound. Needs five pulse hits to break.'},
  'ice-asteroid':{name:'Ice asteroid',family:'rock',color:'#88e9ff',radius:1.4,mass:4,hp:1,bounce:.35,model:'ice-asteroid',blast:4.5,blastDamage:1,description:'Fragile ice shatters in one hit. Its fast fragments can hit nearby targets.'},
  'volatile-rock':{name:'Volatile asteroid',family:'rock',color:'#ff884a',radius:1.45,mass:6,hp:2,bounce:.35,model:'volatile-rock',blast:8,blastDamage:4,description:'Glowing seams warn of a large blast. Shoot it near enemies; keep your distance.'},
- 'comet':{name:'Ice comet',family:'rock',color:'#b3f0ff',radius:1.6,mass:9,hp:3,bounce:.3,model:'comet',blast:5,blastDamage:2,description:'Crosses the route with a long tail. Its momentum carries through an impact.'},
  'cargo-crate':{name:'Cargo cache',family:'salvage',color:'#e6b36e',radius:.9,mass:3,hp:2,bounce:.45,model:'cargo-crate',collect:'cargo',description:'Collect to restore 12% cargo. Shots can destroy it, so watch your fire.'},
  'fuel-tank':{name:'Fuel canister',family:'hazard',color:'#ffb153',radius:1.1,mass:4,hp:1,bounce:.4,model:'fuel-tank',blast:9,blastDamage:5,description:'One shot starts a powerful explosion. Nearby canisters can chain-react.'},
  'repair-pod':{name:'Repair capsule',family:'salvage',color:'#8bffc3',radius:.85,mass:2,hp:2,bounce:.5,model:'repair-pod',collect:'repair',description:'Collect to restore 22 hull armor. Repair also reduces visible smoke and fire.'},

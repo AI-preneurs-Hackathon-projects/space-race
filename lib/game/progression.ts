@@ -16,7 +16,7 @@ export function stageMission(stage:number,seed:number,previous:{x:number;y:numbe
  for(let i=0;i<2;i++){let p={x:0,y:0};for(let tries=0;tries<20;tries++){p={x:(rand()<.5?-1:1)*(4.6+rand()*1.6),y:(rand()*2-1)*2.8};if(!previous[i]||Math.hypot(p.x-previous[i].x,p.y-previous[i].y)>3)break;}if(previous[i]&&Math.hypot(p.x-previous[i].x,p.y-previous[i].y)<=3)p={x:-previous[i].x,y:-previous[i].y};portals.push(p);}
  let gapX=0,gapY=0,objectIndex=0;const portalIndices=[5,19];
  const ai=template?.source==='openai'?template.events.filter(e=>e.kind!=='portal'):undefined;
- const roster:ObjectType[]=['ice-asteroid','pirate','fuel-tank','volatile-rock','repair-pod','moon','twinwing-fighter','cargo-crate','repulsor','saucer-cruiser','comet','shield-buoy','blackhole','solar-satellite','missile','iron-asteroid','wedge-destroyer','pirate','twinwing-fighter','saucer-cruiser','wedge-destroyer'];
+ const roster:ObjectType[]=['ice-asteroid','pirate','fuel-tank','volatile-rock','repair-pod','moon','twinwing-fighter','cargo-crate','repulsor','saucer-cruiser','ice-asteroid','shield-buoy','blackhole','solar-satellite','missile','iron-asteroid','wedge-destroyer','pirate','twinwing-fighter','saucer-cruiser','wedge-destroyer'];
  for(let i=0;i<d.waves;i++){
   const at=3+i*(108/(d.waves-1)),portalIndex=portalIndices.indexOf(i);
   if(portalIndex>=0){events.push({at,kind:'portal',objectType:'portal',...portals[portalIndex],count:1,portalRadius:d.portalRadius});continue;}
@@ -31,7 +31,7 @@ export function stageMission(stage:number,seed:number,previous:{x:number;y:numbe
    const half=d.gapWidth/2,rad=spec.radius;
    const points=[{x:gapX-half-rad-.4,y:gapY,radius:rad},{x:gapX+half+rad+.4,y:gapY+(rand()-.5),radius:rad}];
    if(d.tier>=4&&rand()<.35+(d.tier-1)/(d.tier+11)*.65)points.push({x:gapX,y:gapY+(gapY>0?-1:1)*(half+rad+1),radius:rad});
-   events.push({at,kind:'asteroid',objectType:id,x:gapX,y:gapY,count:1,points,gap:{axis:'x',center:gapX,halfWidth:half,x:gapX,y:gapY},drift:id==='comet'?sign*.9:0});continue;
+   events.push({at,kind:'asteroid',objectType:id,x:gapX,y:gapY,count:1,points,gap:{axis:'x',center:gapX,halfWidth:half,x:gapX,y:gapY},drift:0});continue;
   }
   events.push({at,kind:'object',objectType:id,x:spec.collect?sign*(1.5+rand()*2):sign*(2.5+rand()*3),y:(rand()-.5)*4,count:1,drift:id==='missile'?0:(rand()-.5)*.7});
  }
