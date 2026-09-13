@@ -61,6 +61,7 @@ test('evasive flight can deliver the full practice mission',()=>{
  console.log('Full route:',state.status,'hull',state.hull,'cargo',state.cargo,'cleared',state.kills);expect(state.status).toBe('delivered');
 });
 test('AI service failure is visible and leaves practice playable',async({page})=>{
+ await page.route('**/api/speech',route=>route.fulfill({status:503,json:{error:'Text-only test'}}));
  await page.route('**/api/ai-status',route=>route.fulfill({json:{available:true}}));
  await page.route('**/api/mission',route=>route.fulfill({status:503,json:{error:'OpenAI could not complete this request.'}}));
  await page.route('**/api/director',route=>route.fulfill({status:503,json:{error:'Test provider outage'}}));
@@ -106,6 +107,7 @@ test('encounter waves stay ordered and spaced across warp exit',()=>{
 
 test('a late AI plan cannot replace the fallback mission already in flight',async({page})=>{
  let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ await page.route('**/api/speech',route=>route.fulfill({status:503,json:{error:'Text-only test'}}));
  await page.route('**/api/ai-status',route=>route.fulfill({json:{available:true}}));
  await page.route('**/api/director',route=>route.fulfill({status:503,json:{error:'Test provider outage'}}));
  await page.route('**/api/mission',async route=>{const context=route.request().postDataJSON();await gate;await route.fulfill({json:{plan:{title:'Late plan',beats:Array.from({length:difficulty(context.stage,context.difficulty).waves-2},(_,i)=>({objectType:i%4===0?'pirate':i%2?'ice-asteroid':'fuel-tank',pace:i%4===0?'calm':'steady'}))}}}).catch(()=>{});});

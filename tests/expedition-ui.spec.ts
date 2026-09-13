@@ -11,6 +11,7 @@ declare global {
 
 /** Instrument only the fetched development module; production has no testing shortcuts. */
 async function exposeFlight(page:Page) {
+  await page.route('**/api/speech',route=>route.fulfill({status:503,json:{error:'Text-only test'}}));
   await page.route('**/components/space-scene.tsx*',async route=>{
     const response=await route.fetch();let body=await response.text();
     const needle='const loop = (now) => {';expect(body).toContain(needle);

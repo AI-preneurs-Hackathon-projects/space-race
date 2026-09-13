@@ -1,6 +1,14 @@
 import {test,expect} from '@playwright/test';
 import {difficulty} from '../lib/game/progression';
 import type {DirectorContext} from '../lib/game/section-director';
+import type {Group,LineSegments} from 'three';
+import type {Flight} from '../lib/game/simulation';
+import type {Mission} from '../lib/game/types';
+type CheckpointWindow=Window&{
+ __sectionQA:{state:Flight;mission:Mission;ship:Group;damageTrail:Group;station:Group;readonly ready:boolean};
+ __transferQA:{ship:Group;gate:Group;stars:LineSegments};
+};
+test.beforeEach(async({page})=>{page.setDefaultTimeout(15000);await page.route('**/api/speech',route=>route.fulfill({status:503,json:{error:'Text-only test'}}));});
 const authored=(context:DirectorContext)=>({title:'Section '+context.stage,beats:Array.from({length:difficulty(context.stage,context.difficulty).waves-2},(_,i)=>({objectType:i%4===0?'pirate':i%4===1?'ice-asteroid':context.stage===1?'fuel-tank':'solar-satellite',pace:i%4===0?'calm':i%3===0?'intense':'steady'}))});
 async function fixture(page:import('@playwright/test').Page){
  await page.route('**/components/space-scene.tsx*',async route=>{
@@ -23,16 +31,16 @@ for(const fallback of [false,true])test(`contract transfer loads a fresh manifes
  expect(requests).toHaveLength(1);expect(requests[0]).toMatchObject({stage:1,difficulty:'hard',ship:{id:'wraith',armor:80},condition:{hull:80,cargo:100}});
  await page.locator('.contract-option.risk-high').click();await page.getByRole('button',{name:'Hull 80 → 95',exact:true}).click();await page.getByRole('button',{name:'Enter Warp',exact:true}).click();const transfer=page.getByRole('region',{name:'Checkpoint transfer'});await expect(transfer).toContainText('100% cargo remaining');
  await expect(page.locator('canvas[data-ready]')).toHaveAttribute('data-ship','wraith');await page.getByRole('button',{name:'Pause jump'}).click();
- const visual=await page.evaluate(()=>{const q=(window as any).__transferQA;return {ship:q.ship.children.length,exhaust:q.ship.getObjectsByProperty('name','engine_plume').length,membrane:q.gate.getObjectByName('portal_membrane').visible};});expect(visual.ship).toBeGreaterThan(0);expect(visual.exhaust).toBe(2);expect(visual.membrane).toBe(false);
+ const visual=await page.evaluate(()=>{const q=(window as unknown as CheckpointWindow).__transferQA;return {ship:q.ship.children.length,exhaust:q.ship.getObjectsByProperty('name','engine_plume').length,membrane:q.gate.getObjectByName('portal_membrane')!.visible};});expect(visual.ship).toBeGreaterThan(0);expect(visual.exhaust).toBe(2);expect(visual.membrane).toBe(false);
  await page.screenshot({path:`outputs/section-transfer-${fallback?'fallback':'ai'}.png`});await page.waitForTimeout(3500);await expect(transfer).toBeVisible();expect(requests).toHaveLength(1);
- await page.getByRole('button',{name:'Resume jump'}).click();await page.waitForFunction(()=>(window as any).__sectionQA?.mission.stage===2);
+ await page.getByRole('button',{name:'Resume jump'}).click();await page.waitForFunction(()=>(window as unknown as CheckpointWindow).__sectionQA?.mission.stage===2);
  expect(requests).toHaveLength(2);expect(requests[1]).toMatchObject({stage:2,difficulty:'hard',ship:{id:'wraith',armor:95},condition:{hull:95,cargo:100},previousArrival:{stage:1,hull:41,maxHull:80,cargo:37.25},upgrades:{hull:1,cruise:0}});
- const loading=await page.evaluate(()=>{const q=(window as any).__sectionQA;return {ready:q.ready,shield:q.damageTrail.getObjectByName('shield').visible,cargo:q.state.cargo,hull:q.state.hull};});expect(loading).toEqual({ready:false,shield:false,cargo:100,hull:95});
+ const loading=await page.evaluate(()=>{const q=(window as unknown as CheckpointWindow).__sectionQA;return {ready:q.ready,shield:!!q.damageTrail.getObjectByName('shield'),cargo:q.state.cargo,hull:q.state.hull};});expect(loading).toEqual({ready:false,shield:false,cargo:100,hull:95});
  await page.screenshot({path:'outputs/section-loading-no-sphere.png'});releaseMap();await expect(page.locator('canvas[data-stage]')).toHaveAttribute('data-stage','2');
  await expect(page.locator('.hud-vitals')).toContainText('95');await expect(page.locator('.hud-vitals')).toContainText('100%');await expect(page.locator('.flight-bottom')).toContainText('0/2 JUMPS');await expect(page.getByRole('region',{name:'Checkpoint route map'})).toHaveCount(0);
- const consumed=await page.evaluate(()=>{const q=(window as any).__sectionQA;return {source:q.mission.source,third:q.mission.events[2].objectType,ship:q.ship.children.length,shield:q.damageTrail.getObjectByName('shield').visible};});expect(consumed.source).toBe(fallback?'practice':'openai');if(!fallback)expect(consumed.third).toBe('solar-satellite');expect(consumed.ship).toBeGreaterThan(0);expect(consumed.shield).toBe(false);
+ const consumed=await page.evaluate(()=>{const q=(window as unknown as CheckpointWindow).__sectionQA;return {source:q.mission.source,authoredThird:q.mission.director?.beats[2].objectType,hasAuthoredSatellite:q.mission.events.some(event=>event.objectType==='solar-satellite'),ship:q.ship.children.length,shield:!!q.damageTrail.getObjectByName('shield')};});expect(consumed.source).toBe(fallback?'practice':'openai');if(!fallback){expect(consumed.authoredThird).toBe('solar-satellite');expect(consumed.hasAuthoredSatellite).toBe(true);}expect(consumed.ship).toBeGreaterThan(0);expect(consumed.shield).toBe(false);
  // Change the actual physics state and leave synchronously before the throttled HUD callback.
- await page.evaluate(()=>{const s=(window as any).__sectionQA.state;s.hull=44;s.cargo=19.5;(document.querySelector('.wordmark') as HTMLElement).click();});
+ await page.evaluate(()=>{const s=(window as unknown as CheckpointWindow).__sectionQA.state;s.hull=44;s.cargo=19.5;(document.querySelector('.wordmark') as HTMLElement).click();});
  await expect(page.locator('.mission-metrics')).toContainText('20');await expect(page.locator('.ship-specs')).toContainText('44');await expect(page.getByRole('button',{name:'Hard',exact:true})).toHaveAttribute('aria-pressed','true');expect(errors).toEqual([]);
 });
 

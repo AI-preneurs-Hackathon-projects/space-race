@@ -1,4 +1,4 @@
-import type {Campaign} from './progression';
+import {CRUISE_STEP,type Campaign} from './progression';
 import type {Contract, DirectorContext} from './contracts';
 import type {RunState} from './run-manager';
 import type {Flight} from './simulation';
@@ -9,7 +9,7 @@ export function contractContext(campaign:Campaign,run:RunState,contract:Contract
   return {
     sector:campaign.stage,difficulty:campaign.difficulty,hull:flight?.hull??100,maxHull:flight?.maxHull??100,
     cargoIntegrity:flight?.cargo??campaign.cargo,currentCargo:contract?.cargoType??null,
-    upgrades:{hull:campaign.hullUpgrades,cruise:campaign.cruiseUpgrades},credits:run.credits,
+    upgrades:{hull:campaign.hullUpgrades,cruise:campaign.cruiseUpgrades},effectiveCruise:flight?.cruise??1+campaign.cruiseUpgrades*CRUISE_STEP,credits:run.credits,
     performance:{damageTaken:0,kills:0,itemsCollected:0,objectivesCompleted:0,objectivesFailed:0},
     enemies:{active:0,bountyHunter:false},notableEvents:[],recentBehavior:[],
     previousContracts:[...run.history.slice(-5).map(r=>r.cargoType),...(contract&&run.history.at(-1)?.contractId!==contract.id?[contract.cargoType]:[])],recentObjectives:[],

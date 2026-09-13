@@ -1,4 +1,5 @@
 import type {CargoType, Contract} from './contracts';
+import {deliverySpeedReward} from './delivery-timing';
 
 export type DeliveryMetrics = {
   cargoIntegrity: number;
@@ -17,7 +18,9 @@ export type DeliveryResult = {
   cargoIntegrity: number;
   minimumCargoIntegrity: number | null;
   baseReward: number;
+  speedReward: number;
   bonusReward: number;
+  elapsed: number | null;
   totalReward: number;
   damageTaken: number;
   objectivesCompleted: string[];
@@ -47,9 +50,11 @@ export function resolveDelivery(run:RunState,contract:Contract,metrics:DeliveryM
   const cargoIntegrity=bounded(metrics.cargoIntegrity,0,100);
   const success=cargoIntegrity>0 && cargoIntegrity>=(contract.minimumCargoIntegrity??0);
   const baseReward=success?Math.round(bounded(contract.reward,0,1000000)):0;
+  const elapsed=typeof metrics.elapsed==='number'&&Number.isFinite(metrics.elapsed)&&metrics.elapsed>=0?metrics.elapsed:null;
+  const speedReward=deliverySpeedReward(contract,elapsed??NaN,success);
   const bonusReward=Math.round(bounded(metrics.bonusReward,0,1000000));
-  const result:DeliveryResult={contractId:contract.id,sector:contract.sector,cargoType:contract.cargoType,title:contract.title,success,cargoIntegrity,minimumCargoIntegrity:contract.minimumCargoIntegrity,baseReward,bonusReward,totalReward:baseReward+bonusReward,damageTaken:bounded(metrics.damageTaken,0,1000000),objectivesCompleted:metrics.objectivesCompleted.slice(0,30),objectivesFailed:(metrics.objectivesFailed??[]).slice(0,30)};
-  if(run.status!=='active')return {run,result:{...result,baseReward:0,bonusReward:0,totalReward:0}};
+  const result:DeliveryResult={contractId:contract.id,sector:contract.sector,cargoType:contract.cargoType,title:contract.title,success,cargoIntegrity,minimumCargoIntegrity:contract.minimumCargoIntegrity,baseReward,speedReward,bonusReward,elapsed,totalReward:baseReward+speedReward+bonusReward,damageTaken:bounded(metrics.damageTaken,0,1000000),objectivesCompleted:metrics.objectivesCompleted.slice(0,30),objectivesFailed:(metrics.objectivesFailed??[]).slice(0,30)};
+  if(run.status!=='active')return {run,result:{...result,baseReward:0,speedReward:0,bonusReward:0,totalReward:0}};
   return {result,run:{...run,sectorsCompleted:run.sectorsCompleted+1,deliveriesCompleted:run.deliveriesCompleted+(success?1:0),deliveriesAttempted:run.deliveriesAttempted+1,totalReward:run.totalReward+result.totalReward,credits:run.credits+result.totalReward,bestSector:Math.max(run.bestSector,contract.sector),score:run.score+result.totalReward+1000+(success?Math.round(cargoIntegrity*10):0),resolvedContractIds:[...run.resolvedContractIds,contract.id],history:[...run.history,result]}};
 }
 export function finishRun(run:RunState):RunState {

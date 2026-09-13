@@ -35,13 +35,13 @@ export function buildEncounterVisual(e:Entity){
  const back=new THREE.Mesh(new THREE.PlaneGeometry(2.3,.14),new THREE.MeshBasicMaterial({color:'#081823',transparent:true,opacity:.8,depthTest:false}));back.renderOrder=3;bar.add(back);
  const fill=new THREE.Mesh(new THREE.PlaneGeometry(2.2,.085),new THREE.MeshBasicMaterial({color:OBJECTS[id].color,depthTest:false}));fill.name='fill';fill.position.z=.005;fill.renderOrder=4;bar.add(fill);root.add(bar);bar.visible=false;
  const materials:THREE.MeshStandardMaterial[]=[];body.traverse(o=>{if(o instanceof THREE.Mesh){for(const m of Array.isArray(o.material)?o.material:[o.material])if(m instanceof THREE.MeshStandardMaterial){m.userData.baseColor=m.color.clone();m.userData.baseEmissive=m.emissive.clone();m.userData.baseIntensity=m.emissiveIntensity;materials.push(m);}}});root.userData.materials=materials;
- if(e.expeditionRole){
-  const color=e.expeditionRole==='repair'?'#9cf8c4':e.expeditionRole==='authority'?'#a5caff':'#ffc080';
+ if(e.expeditionRole==='repair'){
+  const color='#9cf8c4';
   const canvas=document.createElement('canvas');canvas.width=256;canvas.height=64;
-  const ctx=canvas.getContext('2d')!;ctx.fillStyle='#071923dd';ctx.fillRect(0,0,256,64);ctx.strokeStyle=color;ctx.lineWidth=3;ctx.strokeRect(2,2,252,60);ctx.fillStyle=color;ctx.font='bold 23px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(e.expeditionRole==='repair'?'RELIEF CAPSULE':e.expeditionRole==='authority'?'AUTHORITY':'BOUNTY TARGET',128,33);
+  const ctx=canvas.getContext('2d')!;ctx.fillStyle='#071923dd';ctx.fillRect(0,0,256,64);ctx.strokeStyle=color;ctx.lineWidth=3;ctx.strokeRect(2,2,252,60);ctx.fillStyle=color;ctx.font='bold 23px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('RELIEF CAPSULE',128,33);
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
   const marker=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false}));marker.name='contract-marker';marker.position.y=e.radius+2;marker.scale.set(7,1.75,1);root.add(marker);
-  if(e.expeditionRole==='repair')for(const material of materials){material.userData.baseEmissive=new THREE.Color('#25c976');material.userData.baseIntensity=.8;}
+  for(const material of materials){material.userData.baseEmissive=new THREE.Color('#25c976');material.userData.baseIntensity=.8;}
  }
  return root;
 }
@@ -51,6 +51,9 @@ export function updateEncounterVisual(e:Entity,obj:THREE.Object3D,time:number,ca
  if(e.kind==='portal'){const membrane=obj.getObjectByName('portal_membrane') as THREE.Mesh<THREE.BufferGeometry,THREE.ShaderMaterial>;membrane.material.uniforms.time.value=time;}
  const bar=obj.getObjectByName('healthbar');if(bar){bar.visible=(e.hitAge??0)>0&&e.hp>0&&!isField(typeOf(e))&&e.z< -2&&e.z> -150;bar.quaternion.copy(camera.quaternion);const fill=bar.getObjectByName('fill')!;fill.scale.x=Math.max(0,e.hp/(e.maxHp??OBJECTS[typeOf(e)].hp));fill.position.x=-(1-fill.scale.x)*1.1;}
  const marker=obj.getObjectByName('contract-marker');if(marker){marker.visible=e.hp>0&&e.z< -8&&e.z> -360;const scale=THREE.MathUtils.clamp(-e.z/85,.7,3);marker.scale.set(7*scale,1.75*scale,1);}
+ let target=obj.getObjectByName('objective-target');
+ if(e.objectiveTarget&&!target){target=new THREE.Mesh(new THREE.ConeGeometry(.3,.6,3),glow('#ffd19b'));target.name='objective-target';target.rotation.z=Math.PI;target.position.y=e.radius+1.5;obj.add(target);}
+ if(target)target.visible=!!e.objectiveTarget&&e.hp>0&&e.z< -8&&e.z> -300;
  const flash=Math.min(1,(e.hitAge??0)*5),damage=e.hp/(e.maxHp??OBJECTS[typeOf(e)].hp);
  for(const m of (obj.userData.materials??[]) as THREE.MeshStandardMaterial[]){m.color.copy(m.userData.baseColor).multiplyScalar(.55+.45*Math.max(0,damage));m.emissive.copy(m.userData.baseEmissive).lerp(impactColor,flash);m.emissiveIntensity=(m.userData.baseIntensity??0)+flash*2;}
 }
@@ -65,11 +68,10 @@ export function updateEffectVisual(fx:FlightEffect,g:THREE.Object3D){if(fx.kind=
 export function createDamageTrail(){
  const g=new THREE.Group();const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(36*3),3));geo.setAttribute('heat',new THREE.BufferAttribute(new Float32Array(36),1));
  const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{intensity:{value:0}},vertexShader:'attribute float heat; varying float vHeat; uniform float intensity; void main(){vHeat=heat;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_Position=projectionMatrix*mv;gl_PointSize=clamp((1.0-heat)*160.0/max(1.0,-mv.z),2.0,55.0)*intensity;}',fragmentShader:'varying float vHeat;uniform float intensity;void main(){float d=length(gl_PointCoord-.5)*2.0;vec3 color=mix(vec3(.12,.16,.19),vec3(1.0,.36,.06),pow(vHeat,4.0));gl_FragColor=vec4(color,(1.0-smoothstep(.05,1.0,d))*(.35+vHeat*.5)*intensity);}'});
- const points=new THREE.Points(geo,material);points.frustumCulled=false;g.add(points);const shield=new THREE.Mesh(new THREE.SphereGeometry(1.65,24,14),new THREE.MeshBasicMaterial({color:'#82eaff',wireframe:true,transparent:true,opacity:.1,depthWrite:false}));shield.name='shield';shield.visible=false;g.add(shield);return g;
+ const points=new THREE.Points(geo,material);points.frustumCulled=false;g.add(points);return g;
 }
 export function updateShipDamage(ship:THREE.Group,trail:THREE.Group,s:Flight,time:number){
  const ratio=s.hull/s.maxHull,damage=THREE.MathUtils.clamp((.7-ratio)/.7,0,1);
  const pts=trail.children[0] as THREE.Points<THREE.BufferGeometry,THREE.ShaderMaterial>,pos=pts.geometry.getAttribute('position'),heat=pts.geometry.getAttribute('heat');pts.visible=damage>0;pts.material.uniforms.intensity.value=damage;
  for(let i=0;i<36;i++){const a=(time*(ratio<.3?1.7:1.1)+i/36)%1;pos.setXYZ(i,s.x+.38*Math.sin(i*2.4)+Math.sin(i+a*3)*a*.7,s.y+.12+a*1.7,s.shotAge<.08?1.8+a*6:1.2+a*6);heat.setX(i,(1-a)*(ratio<.3?1:.3));}pos.needsUpdate=true;heat.needsUpdate=true;
- const shield=trail.getObjectByName('shield')!;shield.visible=s.shield>0&&s.warpAge===null;shield.position.set(s.x,s.y,0);shield.rotation.y=time*.5;
 }

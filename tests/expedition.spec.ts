@@ -64,7 +64,7 @@ test('AI validation rejects invented mechanics, unsupported targets, duplicate c
 test('contextual fallback decisions are consequences of damaged cargo, valuable cargo and hostile behavior',()=>{
   expect(fallbackDecision(context({cargoIntegrity:24,hull:38})).event?.type).toBe('repair_opportunity');
   expect(fallbackDecision(context({currentCargo:'high_value_technology'})).event?.type).toBe('bounty_hunter');
-  expect(fallbackDecision(context({currentCargo:'classified'})).event?.type).toBe('authority_scan');
+  expect(fallbackDecision(context({currentCargo:'navigation_computers'})).event?.type).toBe('pirate_pursuit');
   expect(fallbackDecision(context({currentCargo:'volatile_fuel',instability:80})).event?.type).toBe('cargo_instability');
   for(const cargoType of CARGO_TYPES)expect(()=>validateDecision(fallbackDecision(context({currentCargo:cargoType})),context({currentCargo:cargoType}))).not.toThrow();
 });
@@ -80,7 +80,7 @@ test('delivery rewards come from local integrity and completed objectives, resol
   expect(cargoSuccessRate(failed.run)).toBe(50);
   const over=finishRun(failed.run);expect(over.status).toBe('over');expect(over.bestSector).toBe(3);
   expect(over.deliveriesAttempted).toBe(3);expect(cargoSuccessRate(over)).toBe(33);expect(finishRun(over)).toBe(over);
-  expect(resolveDelivery(over,contract('classified',3),metrics).run).toBe(over);
+  expect(resolveDelivery(over,contract('navigation_computers',3),metrics).run).toBe(over);
   expect(newRun(12)).toMatchObject({sectorsCompleted:0,deliveriesCompleted:0,totalReward:0,credits:0,score:0,history:[],status:'active'});
 });
 
