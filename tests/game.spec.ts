@@ -1,5 +1,6 @@
 import {createFlight} from './support';
 import {test,expect} from '@playwright/test';
+import {difficulty} from '../lib/game/progression';
 import {FLEET,DURATION,practiceMission,validateHull,validateMission} from '../lib/game/types';
 import {stepFlight,damage,warpSpeed,courseStep,type Entity} from '../lib/game/simulation';
 import {buildShip,disposeObject} from '../lib/game/meshes';
@@ -24,6 +25,7 @@ test('AI output constraints and real geometry',()=>{
  const m=validateMission(practiceMission());expect(m.events.length).toBeGreaterThan(9);for(let i=1;i<m.events.length;i++)expect(m.events[i].at-m.events[i-1].at).toBeGreaterThanOrEqual(2.999);
 });
 test('hangar, drawing, ship selection, launch, pause and restart',async({page})=>{
+ await page.route('**/api/ai-status',route=>route.fulfill({json:{available:false}}));
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeVisible();await expect(page.locator('canvas')).toHaveAttribute('data-model-source','blender');await page.screenshot({path:'outputs/hangar-desktop.png',fullPage:true});
  await page.getByRole('button',{name:/02 Wraith/}).click();await expect(page.locator('.ship-name h2')).toHaveText('Wraith');await page.getByRole('button',{name:/03 Atlas/}).click();await expect(page.locator('.ship-name h2')).toHaveText('Atlas');
@@ -36,19 +38,21 @@ test('hangar, drawing, ship selection, launch, pause and restart',async({page})=
  await page.screenshot({path:'outputs/flight.png'});await page.getByRole('button',{name:'Pause game'}).click();await expect(page.getByText('Take a breath.')).toBeVisible();await page.getByRole('button',{name:'Resume delivery'}).click();await page.keyboard.press('Escape');await page.getByRole('button',{name:'Return to hangar'}).click();await expect(page.locator('.ship-name h2')).toHaveText('Sketch 01');
  await page.getByRole('button',{name:'Launch delivery'}).click();await expect(page.locator('.hud-vitals')).toContainText('100');expect(errors).toEqual([]);
 });
-test('mobile layout and API offline/error handling',async({page,request})=>{
+test('mobile layout and API input/error handling remain usable with local dispatch',async({page,request})=>{
+ await page.route('**/api/ai-status',route=>route.fulfill({json:{available:false}}));
  await page.setViewportSize({width:390,height:844});await page.goto('/');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeVisible();await page.screenshot({path:'outputs/hangar-mobile.png',fullPage:true});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
- const status=await request.get('/api/ai-status');expect(await status.json()).toEqual({available:false});
- const unavailable=await request.post('/api/mission',{data:{}});expect(unavailable.status()).toBe(503);expect((await unavailable.json()).error).toContain('not connected');
+ const status=await request.get('/api/ai-status');expect(status.status()).toBe(200);const availability=await status.json();expect(Object.keys(availability)).toEqual(['available']);expect(typeof availability.available).toBe('boolean');
+ const invalidMission=await request.post('/api/mission',{data:{}});expect(invalidMission.status()).toBe(400);
  const invalid=await request.post('/api/ship',{data:{image:'not-an-image'}});expect(invalid.status()).toBe(400);
  const crossOrigin=await request.post('/api/mission',{data:{},headers:{Origin:'https://example.com'}});expect(crossOrigin.status()).toBe(403);
  await page.getByRole('button',{name:'Launch delivery'}).click();await expect(page.getByRole('button',{name:'FIRE',exact:true})).toBeVisible();await page.screenshot({path:'outputs/flight-mobile.png'});
 });
-test('failed delivery reaches its result and can restart',async({page})=>{
- await page.goto('/');await page.getByRole('button',{name:'Launch delivery'}).click();
- await expect(page.getByRole('button',{name:'Retry stage 1'})).toBeVisible({timeout:180000});
- await page.screenshot({path:'outputs/mission-result.png'});await page.getByRole('button',{name:'Retry stage 1'}).click();await expect(page.getByRole('button',{name:'Pause game'})).toBeVisible();await expect(page.getByRole('button',{name:'Retry stage 1'})).not.toBeVisible();
+test('ship destruction shows expedition results and can immediately restart',async({page})=>{
+ await page.route('**/api/ai-status',route=>route.fulfill({json:{available:false}}));
+ await page.goto('/');await page.getByRole('button',{name:'Hard',exact:true}).click();await page.getByRole('button',{name:'Launch delivery'}).click();
+ await expect(page.getByRole('button',{name:'Retry',exact:true})).toBeVisible({timeout:180000});
+ await expect(page.getByRole('heading',{name:'Expedition over',exact:true})).toBeVisible();await page.screenshot({path:'outputs/mission-result.png'});await page.getByRole('button',{name:'Retry',exact:true}).click();await expect(page.getByRole('button',{name:'Pause game'})).toBeVisible();await expect(page.getByRole('button',{name:'Retry',exact:true})).not.toBeVisible();await expect(page.locator('canvas[data-stage]')).toHaveAttribute('data-stage','1');
 });
 
 test('evasive flight can deliver the full practice mission',()=>{
@@ -59,7 +63,9 @@ test('evasive flight can deliver the full practice mission',()=>{
 test('AI service failure is visible and leaves practice playable',async({page})=>{
  await page.route('**/api/ai-status',route=>route.fulfill({json:{available:true}}));
  await page.route('**/api/mission',route=>route.fulfill({status:503,json:{error:'OpenAI could not complete this request.'}}));
- await page.goto('/');await expect(page.locator('.notice')).toContainText('Practice route is ready to fly.');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeEnabled();await page.getByRole('button',{name:'Launch delivery'}).click();await expect(page.locator('.route-progress')).toContainText('PRACTICE ROUTE');
+ await page.route('**/api/director',route=>route.fulfill({status:503,json:{error:'Test provider outage'}}));
+ await page.goto('/');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeEnabled();await page.getByRole('button',{name:'Launch delivery'}).click();await expect(page.locator('.route-progress')).toContainText('MEDICAL SUPPLIES');
+ await expect(page.getByRole('button',{name:'Pause game'})).toBeVisible();await page.getByRole('button',{name:'Pause game'}).click();await page.getByRole('button',{name:'Return to hangar'}).click();await expect(page.locator('.notice')).toContainText('Flight plan restored.');await expect(page.getByRole('button',{name:'Launch delivery'})).toBeEnabled();
 });
 
 test('portal crossing, smooth boost, safety clearance, miss and reset',()=>{
@@ -98,12 +104,14 @@ test('encounter waves stay ordered and spaced across warp exit',()=>{
  for(let i=1;i<arrivals.length;i++)expect(arrivals[i].progress-arrivals[i-1].progress).toBeGreaterThan(3.4);
 });
 
-test('a late AI plan cannot replace the mission already in flight',async({page})=>{
+test('a late AI plan cannot replace the fallback mission already in flight',async({page})=>{
  let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
- await page.route('**/api/ai-status',async route=>{await gate;await route.fulfill({json:{available:true}});});
- await page.route('**/api/mission',route=>route.fulfill({json:{mission:practiceMission()}}));
- await page.goto('/');await page.getByRole('button',{name:'Launch delivery'}).click();await page.waitForTimeout(4000);
+ await page.route('**/api/ai-status',route=>route.fulfill({json:{available:true}}));
+ await page.route('**/api/director',route=>route.fulfill({status:503,json:{error:'Test provider outage'}}));
+ await page.route('**/api/mission',async route=>{const context=route.request().postDataJSON();await gate;await route.fulfill({json:{plan:{title:'Late plan',beats:Array.from({length:difficulty(context.stage,context.difficulty).waves-2},(_,i)=>({objectType:i%4===0?'pirate':i%2?'ice-asteroid':'fuel-tank',pace:i%4===0?'calm':'steady'}))}}}).catch(()=>{});});
+ await page.goto('/');await page.getByRole('button',{name:'Launch delivery'}).click();
+ await expect(page.getByRole('button',{name:'Planning this section…'})).toBeDisabled();await expect(page.getByRole('button',{name:'Pause game'})).toBeVisible({timeout:12000});
  const distance=async()=>parseInt((await page.locator('.route-progress').innerText()).match(/(\d+) KM/)![1]);
- const before=await distance(),planned=page.waitForResponse('**/api/mission');release();await planned;await page.waitForTimeout(1000);
- await expect(page.locator('.route-progress')).toContainText('PRACTICE ROUTE');expect(await distance()).toBeLessThan(before-20);
+ const before=await distance(),seed=await page.locator('canvas[data-stage]').getAttribute('data-seed');release();await page.waitForTimeout(1300);
+ await expect(page.locator('.route-progress')).toContainText('MEDICAL SUPPLIES');expect(await distance()).toBeLessThan(before-20);await expect(page.locator('canvas[data-stage]')).toHaveAttribute('data-seed',seed!);
 });

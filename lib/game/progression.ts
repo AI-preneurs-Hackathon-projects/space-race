@@ -1,4 +1,4 @@
-import {clamp,FLEET,DURATION,type Hull,type Mission,type Encounter,type DifficultySetting,type ArrivalCondition,type FlightCondition} from './types';
+import {DURATION,type Hull,type Mission,type Encounter,type DifficultySetting,type ArrivalCondition,type FlightCondition} from './types';
 import {stageEnvironment} from './stage-environment';
 import {OBJECTS,isField,isShip,type ObjectType} from './objects';
 export type Upgrade='hull'|'cruise';
@@ -44,27 +44,35 @@ export function stageMission(stage:number,seed:number,previous:{x:number;y:numbe
  return {title:`${stageEnvironment(stage).name} passage`,source:ai?'openai':'practice',note:ai?'AI section plan · bounded flight lanes':'Seeded local stage',director:ai?template?.director:undefined,events,stage,seed,challenge:d};
 }
 export function launchCondition(c:Campaign,hull:Hull):FlightCondition{return {hull:c.status==='lost'?hull.armor:Math.min(hull.armor,c.hull??hull.armor),cargo:c.status==='lost'?100:c.cargo};}
-export function beginAttempt(c:Campaign,template?:Mission){
+export function beginAttempt(c:Campaign,template?:Mission,expedition=false){
  if(c.status==='cleared'||c.status==='flying')return null;
  const ready=c.status==='lost'?{...c,hull:null,cargo:100,arrival:null}:c;
- if(ready.cargo<=0||ready.hull!==null&&ready.hull<=0)return null;
+ if(!expedition&&ready.cargo<=0||ready.hull!==null&&ready.hull<=0)return null;
  const attempt=ready.attempt+1,seed=(ready.seed^Math.imul(attempt,0x9e3779b1)^Math.imul(ready.stage,0x85ebca6b))>>>0;
  const mission=stageMission(ready.stage,seed,ready.lastPortals,template,ready.difficulty);mission.attempt=attempt;
  return {campaign:{...ready,attempt,status:'flying' as const,lastPortals:mission.events.filter(e=>e.kind==='portal').map(({x,y})=>({x,y}))},mission};
 }
-export function finishAttempt(c:Campaign,attempt:number,status:'delivered'|'lost',condition?:FlightCondition&{maxHull:number;arrivalHull:number|null}):Campaign{
+export function finishAttempt(c:Campaign,attempt:number,status:'delivered'|'lost',condition?:FlightCondition&{maxHull:number;arrivalHull:number|null},expedition=false):Campaign{
  if(c.status!=='flying'||attempt!==c.attempt)return c;
- const cargo=Math.min(c.cargo,condition?.cargo??c.cargo),hull=condition?.hull??c.hull;
- const cleared=status==='delivered'&&cargo>0&&(hull===null||hull>0);
+ const cargo=expedition?Math.max(0,Math.min(100,condition?.cargo??c.cargo)):Math.min(c.cargo,condition?.cargo??c.cargo),hull=condition?.hull??c.hull;
+ const cleared=status==='delivered'&&(expedition||cargo>0)&&(hull===null||hull>0);
  return {...c,cargo,hull:cleared?null:hull,status:cleared?'cleared':'lost',arrival:cleared&&condition?{stage:c.stage,hull:condition.arrivalHull??condition.hull,maxHull:condition.maxHull,cargo}:c.arrival};
+}
+/** A new delivery loads a new manifest. Legacy campaign helpers stay compatible. */
+export function departWithContract(c:Campaign,kind:Upgrade|'continue'):Campaign{
+ if(c.status!=='cleared')return c;
+ // An upgrade is optional; capped upgrades and sector scaling retain their existing limits.
+ if(kind==='continue')return {...c,stage:c.stage+1,status:'ready',cargo:100,hull:null};
+ const next=chooseUpgrade({...c,cargo:100},kind);
+ return next.stage===c.stage?c:next;
 }
 export function chooseUpgrade(c:Campaign,kind:Upgrade|'continue'):Campaign{
  if(c.status!=='cleared'||c.cargo<=0)return c;
  if(kind==='hull'&&c.hullUpgrades>=HULL_CAP||kind==='cruise'&&c.cruiseUpgrades>=CRUISE_CAP||kind==='continue'&&(c.hullUpgrades<HULL_CAP||c.cruiseUpgrades<CRUISE_CAP))return c;
  return {...c,stage:c.stage+1,status:'ready',hull:null,hullUpgrades:c.hullUpgrades+(kind==='hull'?1:0),cruiseUpgrades:c.cruiseUpgrades+(kind==='cruise'?1:0)};
 }
-export function leaveFlight(c:Campaign,condition?:FlightCondition):Campaign{
+export function leaveFlight(c:Campaign,condition?:FlightCondition,expedition=false):Campaign{
  if(c.status!=='flying')return c;
- const cargo=Math.min(c.cargo,condition?.cargo??c.cargo),hull=condition?.hull??c.hull;
- return {...c,hull,cargo,status:cargo<=0||hull!==null&&hull<=0?'lost':'ready'};
+ const cargo=expedition?Math.max(0,Math.min(100,condition?.cargo??c.cargo)):Math.min(c.cargo,condition?.cargo??c.cargo),hull=condition?.hull??c.hull;
+ return {...c,hull,cargo,status:!expedition&&cargo<=0||hull!==null&&hull<=0?'lost':'ready'};
 }

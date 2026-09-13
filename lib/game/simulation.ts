@@ -1,11 +1,12 @@
 import { clamp, DURATION, CRUISE_SPEED, WARP_MAX_SPEED, WARP_DURATION, MAX_PORTALS, type Hull, type Mission, type EncounterKind } from './types';
 import { OBJECTS, DEFAULT_ROCK, isObjectType, type ObjectType, isField, isShip } from './objects';
 import { FlightPhysics, PHYSICS_STEP } from './physics';
+import { initializeExpedition, cargoDamageMultiplier, cargoTargetPressure, recordExpeditionDamage, recordEnemyDestroyed, recordItemCollected, stepExpedition, settleExpedition, type ExpeditionRuntime, type DamageSource } from './expedition-runtime';
 export { initializePhysics } from './physics';
-export type Entity={id:number;kind:EncounterKind|'shot'|'hostile'|'debris';objectType?:ObjectType;x:number;y:number;z:number;vx:number;vy:number;vz?:number;radius:number;wave?:number;anchorX?:number;anchorY?:number;hp:number;maxHp?:number;age:number;fire:number;mass?:number;hitAge?:number;ttl?:number;credit?:boolean;ownerId?:number;qx?:number;qy?:number;qz?:number;qw?:number};
+export type Entity={expeditionRole?:'bounty_hunter'|'authority'|'repair';id:number;kind:EncounterKind|'shot'|'hostile'|'debris';objectType?:ObjectType;x:number;y:number;z:number;vx:number;vy:number;vz?:number;radius:number;wave?:number;anchorX?:number;anchorY?:number;hp:number;maxHp?:number;age:number;fire:number;mass?:number;hitAge?:number;ttl?:number;credit?:boolean;ownerId?:number;qx?:number;qy?:number;qz?:number;qw?:number};
 export type FlightEffect={id:number;kind:'hit'|'explosion'|'muzzle'|'collect'|'jump';x:number;y:number;z:number;age:number;life:number;size:number;color:string;seed:number};
 export type Input={x:number;y:number;fire:boolean};
-export type Flight={time:number;progress:number;cruise:number;speed:number;warpAge:number|null;portalsUsed:number;x:number;y:number;vx:number;vy:number;hull:number;maxHull:number;cargo:number;kills:number;shots:number;hits:number;immune:number;cooldown:number;next:number;lastEncounterArrival:number;serial:number;entities:Entity[];effects:FlightEffect[];status:'flying'|'delivered'|'lost';warning:string;shield:number;field:string;fieldX:number;fieldY:number;chainHits:number;collisions:number;distanceSaved:number;shotAge:number;arrivalHull:number|null};
+export type Flight={expedition?:ExpeditionRuntime;time:number;progress:number;cruise:number;speed:number;warpAge:number|null;portalsUsed:number;x:number;y:number;vx:number;vy:number;hull:number;maxHull:number;cargo:number;kills:number;shots:number;hits:number;immune:number;cooldown:number;next:number;lastEncounterArrival:number;serial:number;entities:Entity[];effects:FlightEffect[];status:'flying'|'delivered'|'lost';warning:string;shield:number;field:string;fieldX:number;fieldY:number;chainHits:number;collisions:number;distanceSaved:number;shotAge:number;arrivalHull:number|null};
 type Runtime={physics:FlightPhysics;accumulator:number;contacts:Map<string,number>};
 const runtimes=new WeakMap<Flight,Runtime>();
 export function createFlight(hull:Hull,condition?:{hull:number;cargo:number}):Flight{return {time:0,progress:0,cruise:hull.cruise??1,speed:hull.cruise??1,warpAge:null,portalsUsed:0,x:0,y:0,vx:0,vy:0,hull:clamp(condition?.hull??hull.armor,0,hull.armor),maxHull:hull.armor,cargo:clamp(condition?.cargo??100,0,100),kills:0,shots:0,hits:0,immune:0,cooldown:0,next:0,lastEncounterArrival:0,serial:0,entities:[],effects:[],status:'flying',warning:'Steer with thrust. Shoot volatile rocks near enemies. Cyan gates boost real speed.',shield:0,field:'',fieldX:0,fieldY:0,chainHits:0,collisions:0,distanceSaved:0,shotAge:1,arrivalHull:null};}
@@ -15,7 +16,7 @@ const smooth=(t:number)=>t*t*(3-2*t);
 export function warpSpeed(age:number|null){if(age===null||age<0||age>=WARP_DURATION)return 1;return 1+(WARP_MAX_SPEED-1)*(age<1?smooth(age):age<6?1:1-smooth((age-6)/2));}
 function warpIntegral(t:number){t=clamp(t,0,8);if(t<=1)return t*t*t-.5*t*t*t*t;if(t<=6)return .5+t-1;const u=(t-6)/2;return 5.5+2*(u-u*u*u+.5*u*u*u*u);}
 export function courseStep(age:number|null,dt:number){return dt+(age===null?0:(WARP_MAX_SPEED-1)*(warpIntegral(age+dt)-warpIntegral(age)));}
-export function damage(s:Flight,amount:number,cargo:number){if(s.immune>0||s.shield>0||s.status!=='flying')return;s.hull=Math.max(0,s.hull-amount);s.cargo=Math.max(0,s.cargo-cargo);s.immune=.85;s.hits++;s.warning='Hull hit. Counter the drift and protect the cargo.';if(!s.hull||!s.cargo)s.status='lost';}
+export function damage(s:Flight,amount:number,cargo:number,source:DamageSource='impact'){if(s.immune>0||s.shield>0||s.status!=='flying')return;const hullBefore=s.hull,cargoBefore=s.cargo;s.hull=Math.max(0,s.hull-Math.max(0,amount));s.cargo=Math.max(0,s.cargo-Math.max(0,cargo)*cargoDamageMultiplier(s,source));recordExpeditionDamage(s,hullBefore-s.hull,cargoBefore-s.cargo,source);s.immune=.85;s.hits++;s.warning='Hull hit. Counter the drift and protect the cargo.';if(!s.hull||!s.cargo&&!s.expedition)s.status='lost';}
 export const typeOf=(e:Entity):ObjectType=>(isObjectType(e.objectType)?e.objectType:e.kind==='pirate'?'pirate':e.kind==='portal'?'portal':DEFAULT_ROCK);
 export function isSolid(e:Entity){return e.kind!=='portal'&&e.kind!=='shot'&&e.kind!=='hostile';}
 export function isThreat(e:Entity){return e.hp>0&&e.kind!=='shot'&&e.kind!=='portal'&&!OBJECTS[typeOf(e)].collect;}
@@ -31,7 +32,7 @@ function specEntity(s:Flight,id:ObjectType,x:number,y:number,z:number,wave?:numb
 export function spawnObject(s:Flight,id:ObjectType,x:number,y:number,z:number,velocity:{x?:number;y?:number;z?:number}={}):Entity{const e=specEntity(s,id,x,y,z);e.vx=velocity.x??0;e.vy=velocity.y??0;e.vz=velocity.z??0;s.entities.push(e);return e;}
 function detonate(s:Flight,e:Entity,p:FlightPhysics,credit:boolean){
  if(e.hp<=0)return;e.hp=0;e.credit=credit;if(e.kind==='debris'){effect(s,'hit',e,e.radius,'#ddbb99');return;}const id=typeOf(e),spec=OBJECTS[id];
- if(credit&&!isField(id))s.kills++;
+ if(credit&&!isField(id))s.kills++;recordEnemyDestroyed(s,e,credit);
  effect(s,'explosion',e,Math.max(e.radius*2,spec.blast??0),spec.color);
  const blast=spec.blast??e.radius*2.2,power=spec.blastDamage??.6;
  const source=p.bodies.get(e.id),worldPoint=source?.translation()??{x:e.x,y:e.y,z:p.player.translation().z+e.z};
@@ -42,7 +43,7 @@ function detonate(s:Flight,e:Entity,p:FlightPhysics,credit:boolean){
   if(!isField(typeOf(other))){other.hp-=power*falloff;other.hitAge=.6;other.credit=credit||other.credit;if(credit&&other.kind==='pirate')s.chainHits++;if(other.hp<=0){other.hp=.001;detonate(s,other,p,!!other.credit);}}
  }
  const v=p.player.translation(),dx=v.x-worldPoint.x,dy=v.y-worldPoint.y,dz=v.z-worldPoint.z,dist=Math.hypot(dx,dy,dz);
- if(dist<blast+.65){const f=clamp(1-dist/(blast+.65),0,1),n=1/Math.max(dist,.1);p.player.applyImpulse({x:dx*n*f*35,y:dy*n*f*35,z:dz*n*f*35},true);damage(s,power*f*5,power*f*2);}
+ if(dist<blast+.65){const f=clamp(1-dist/(blast+.65),0,1),n=1/Math.max(dist,.1);p.player.applyImpulse({x:dx*n*f*35,y:dy*n*f*35,z:dz*n*f*35},true);damage(s,power*f*5,power*f*2,'explosion');}
  if(!isField(id)&&s.entities.length<MAX_ENTITIES){
   const remaining=MAX_DEBRIS-s.entities.filter(a=>a.kind==='debris'&&a.hp>0).length,count=Math.min(remaining,MAX_ENTITIES-s.entities.length,id==='volatile-rock'||id==='fuel-tank'?7:4);
   for(let i=0;i<count;i++){const a=e.id*1.618+i*2.399,b=i*.87+e.id,dx=Math.cos(a),dy=Math.sin(a),dz=Math.sin(b),scale=e.radius+.4;const frag:Entity={id:s.serial++,kind:'debris',x:e.x+dx*scale,y:e.y+dy*scale,z:e.z+dz*scale,vx:e.vx+dx*(4+i),vy:e.vy+dy*(4+i),vz:(e.vz??0)+dz*(4+i),radius:.16+i%3*.08,mass:.18,hp:1,maxHp:1,age:0,fire:0,ttl:3.8,credit};s.entities.push(frag);p.add(frag,p.player.translation().z);}
@@ -78,15 +79,15 @@ function forces(s:Flight,input:Input,hull:Hull,mission:Mission,p:FlightPhysics){
   for(const [id,b] of [[-1,p.player],...p.bodies.entries()] as const){if(id===field.id)continue;const target=entityMap.get(id);if(target&&target.hp<=0)continue;const v=b.translation(),dx=q.x-v.x,dy=q.y-v.y,dz=q.z-v.z,dist=Math.hypot(dx,dy,dz);if(dist>(spec.fieldRadius??0)||dist<.001)continue;
    const soft=Math.max(3,field.radius*1.5),a=clamp(3*(spec.gravity??0)/(dist*dist+soft*soft),-10,10)*(1-smooth(dist/(spec.fieldRadius??1))),f=b.mass()*a/dist,force={x:dx*f,y:dy*f,z:dz*f};b.addForce(force,true);source.addForce({x:-force.x,y:-force.y,z:-force.z},true);
    if(id===-1){s.fieldX+=dx*a/dist;s.fieldY+=dy*a/dist;if(Math.abs(a)>strongest){strongest=Math.abs(a);s.field=spec.name;}}
-   if(typeOf(field)==='blackhole'&&dist<field.radius){if(target)target.hp=0;else damage(s,28,12);}
+   if(typeOf(field)==='blackhole'&&dist<field.radius){if(target)target.hp=0;else damage(s,28,12,'field');}
   }
  }
  for(const e of s.entities){if(e.hp<=0)continue;const b=p.bodies.get(e.id);if(!b)continue;const spec=OBJECTS[typeOf(e)];
   if(isShip(typeOf(e))&&e.kind==='pirate'){
-   const amp=mission.challenge?.pirateMotion??.35,x=(e.anchorX??e.x)+Math.sin(e.age*1.15+e.id)*amp,y=(e.anchorY??e.y)+Math.sin(e.age*.8+e.id)*amp*.35,v=b.linvel();
+   const pressure=cargoTargetPressure(s),amp=mission.challenge?.pirateMotion??.35,x=(e.anchorX??e.x)+Math.sin(e.age*1.15+e.id)*amp+(s.x-(e.anchorX??e.x))*(pressure-1)*.6,y=(e.anchorY??e.y)+Math.sin(e.age*.8+e.id)*amp*.35,v=b.linvel();
    b.addForce({x:clamp((x-e.x)*3-v.x*1.5,-4,4)*b.mass(),y:clamp((y-e.y)*3-v.y*1.5,-3,3)*b.mass(),z:clamp(-v.z*.15,-2,2)*b.mass()},true);
   }else if(e.objectType==='missile'){const v=b.linvel();b.addForce({x:clamp((s.x-e.x)*1.3-v.x,-3,3)*b.mass(),y:clamp((s.y-e.y)*1.3-v.y,-3,3)*b.mass(),z:clamp((20-v.z)*2,-10,10)*b.mass()},true);}
-  if(s.status==='flying'&&spec.collect==='shield'&&Math.hypot(e.x-s.x,e.y-s.y,e.z)<e.radius+1){s.shield=8;e.hp=0;s.warning='Shield online for 8 seconds.';effect(s,'collect',e,3,spec.color);}
+  if(s.status==='flying'&&spec.collect==='shield'&&Math.hypot(e.x-s.x,e.y-s.y,e.z)<e.radius+1){s.shield=8;e.hp=0;recordItemCollected(s,e);s.warning='Shield online for 8 seconds.';effect(s,'collect',e,3,spec.color);}
  }
 }
 function weapons(s:Flight,input:Input,hull:Hull,mission:Mission,p:FlightPhysics){
@@ -96,9 +97,9 @@ function weapons(s:Flight,input:Input,hull:Hull,mission:Mission,p:FlightPhysics)
  }
  for(const e of [...s.entities]){if(e.hp<=0||e.kind!=='pirate')continue;e.fire-=PHYSICS_STEP;if(s.warpAge!==null)e.fire=Math.max(e.fire,1);
   const weapon=OBJECTS[typeOf(e)].weapons;if(!weapon)continue;
-  const bulletSpeed=mission.challenge?.bulletSpeed??29,aim=mission.challenge?.aimLead??.15,closing=bulletSpeed+CRUISE_SPEED*s.speed,muzzleZ=e.z+e.radius+.6,volley=Math.max(weapon.volley,mission.challenge?.volley??1);
+  const bulletSpeed=mission.challenge?.bulletSpeed??29,aim=Math.min(.8,(mission.challenge?.aimLead??.15)*cargoTargetPressure(s)),closing=bulletSpeed+CRUISE_SPEED*s.speed,muzzleZ=e.z+e.radius+.6,volley=Math.max(weapon.volley,mission.challenge?.volley??1);
   // Aim from the visible muzzle and leave at least 1.4 seconds before a shot can arrive.
-  if(s.warpAge===null&&e.z> -210&&muzzleZ< -closing*1.4&&e.fire<=0){e.fire=(mission.challenge?.pirateInterval??2.15)*weapon.cadence;const t=-muzzleZ/closing;
+  if(s.warpAge===null&&e.z> -210&&muzzleZ< -closing*1.4&&e.fire<=0){e.fire=(mission.challenge?.pirateInterval??2.15)*weapon.cadence/cargoTargetPressure(s);const t=-muzzleZ/closing;
    for(let j=0;j<volley&&s.entities.length<MAX_ENTITIES;j++){const side=volley===2?(j?1:-1):0,x=e.x+side*Math.min(.6,e.radius*.3);const b:Entity={id:s.serial++,kind:'hostile',ownerId:e.id,x,y:e.y,z:muzzleZ,vx:(s.x+s.vx*aim+side*.8-x)/t,vy:(s.y+s.vy*aim-e.y)/t,vz:bulletSpeed,radius:.3,mass:.04,hp:1,age:0,fire:0,ttl:7};s.entities.push(b);p.add(b,p.player.translation().z);effect(s,'muzzle',b,.8,'#ff8060');}
   }
  }
@@ -107,7 +108,7 @@ function tick(s:Flight,input:Input,hull:Hull,mission:Mission,r:Runtime){
  const dt=PHYSICS_STEP,p=r.physics,oldProgress=s.progress,oldPlayer={x:s.x,y:s.y,z:0};
  s.time+=dt;s.immune=Math.max(0,s.immune-dt);s.shield=Math.max(0,s.shield-dt);s.cooldown-=dt;s.shotAge+=dt;
  if(s.warpAge!==null){s.warpAge+=dt;if(s.warpAge>=WARP_DURATION-1e-8){s.warpAge=null;s.warning='Jump complete. Returning to cruise.';}}
- spawnEncounters(s,mission,p);weapons(s,input,hull,mission,p);forces(s,input,hull,mission,p);
+ stepExpedition(s,dt);if(s.status!=='flying'){settleExpedition(s);return;}spawnEncounters(s,mission,p);weapons(s,input,hull,mission,p);forces(s,input,hull,mission,p);
  const old=new Map(s.entities.map(e=>[e.id,{x:e.x,y:e.y,z:e.z}]));
  const velocities=new Map([...p.bodies.entries()].map(([id,b])=>[id,b.linvel()]));velocities.set(-1,p.player.linvel());
  const contacts:[number,number][]=[];p.step((a,b)=>contacts.push([a,b]));
@@ -118,14 +119,14 @@ function tick(s:Flight,input:Input,hull:Hull,mission:Mission,r:Runtime){
  const map=new Map(s.entities.map(e=>[e.id,e]));
  for(const [a,b] of contacts){const key=a<b?`${a}:${b}`:`${b}:${a}`;if(s.time-(r.contacts.get(key)??-99)<.5)continue;r.contacts.set(key,s.time);
   const ea=map.get(a),eb=map.get(b);if((ea&&ea.hp<=0)||(eb&&eb.hp<=0))continue;const va=velocities.get(a),vb=velocities.get(b),impactSpeed=va&&vb?Math.hypot(va.x-vb.x,va.y-vb.y,va.z-vb.z):0;
-  if(a===-1||b===-1){const e=ea??eb;if(!e||OBJECTS[typeOf(e)].collect)continue;const speed=impactSpeed;if(speed<4)continue;damage(s,e.kind==='debris'?4:clamp(8+speed*.4,10,28),e.kind==='debris'?1:12);effect(s,'hit',{x:s.x,y:s.y,z:0},1,'#ff9971');if(!isField(typeOf(e)))hit(s,e,e.kind==='debris'?1:1.2,p,false);s.collisions++;}
+  if(a===-1||b===-1){const e=ea??eb;if(!e||OBJECTS[typeOf(e)].collect||e.expeditionRole==='repair')continue;const speed=impactSpeed;if(speed<4)continue;damage(s,e.kind==='debris'?4:clamp(8+speed*.4,10,28),e.kind==='debris'?1:12);effect(s,'hit',{x:s.x,y:s.y,z:0},1,'#ff9971');if(!isField(typeOf(e)))hit(s,e,e.kind==='debris'?1:1.2,p,false);s.collisions++;}
   else if(ea&&eb){const speed=impactSpeed;if(speed<2.5)continue;const da=ea.kind==='debris'?.7:clamp(speed*.15,.4,3),db=eb.kind==='debris'?.7:clamp(speed*.15,.4,3);hit(s,ea,db,p,!!eb.credit);hit(s,eb,da,p,!!ea.credit);s.collisions++;}
  }
  const player={x:s.x,y:s.y,z:0};
  for(const shot of [...s.entities]){if(shot.hp<=0||(shot.kind!=='shot'&&shot.kind!=='hostile'))continue;let nearest:Entity|undefined,time=Infinity;
   for(const target of s.entities){if(target.hp<=0||!isSolid(target)||target.id===shot.ownerId)continue;const t=sweptTime(old.get(shot.id)??shot,shot,old.get(target.id)??target,target,target.radius+shot.radius);if(t<time){time=t;nearest=target;}}
   const playerT=shot.kind==='hostile'?sweptTime(old.get(shot.id)??shot,shot,oldPlayer,player,.65+shot.radius):Infinity;
-  if(playerT<time){damage(s,16,9);shot.hp=0;effect(s,'hit',player,1,'#ff7653');}
+  if(playerT<time){damage(s,16,9,'projectile');shot.hp=0;effect(s,'hit',player,1,'#ff7653');}
   else if(nearest&&time!==Infinity){shot.hp=0;const body=p.bodies.get(nearest.id),direction=shot.kind==='shot'?-1:1;body?.applyImpulse({x:shot.vx*.04,y:shot.vy*.04,z:direction*3.5},true);hit(s,nearest,1,p,shot.kind==='shot');}
  }
  for(const e of s.entities){if(e.kind!=='portal'||e.hp<=0)continue;const before=old.get(e.id);if(!before||before.z>=0||e.z<0)continue;const fraction=clamp(-before.z/(e.z-before.z),0,1),x=oldPlayer.x+(s.x-oldPlayer.x)*fraction,y=oldPlayer.y+(s.y-oldPlayer.y)*fraction;e.hp=0;
@@ -135,11 +136,13 @@ function tick(s:Flight,input:Input,hull:Hull,mission:Mission,r:Runtime){
  }
  const survivors=s.entities.filter(e=>e.hp>0&&e.z<32&&e.z> -800&&Math.abs(e.x)<85&&Math.abs(e.y)<65&&e.age<(e.ttl??38));const ids=new Set(survivors.map(e=>e.id));for(const id of p.bodies.keys())if(!ids.has(id))p.remove(id);s.entities=survivors;
  for(const [key,t] of r.contacts)if(s.time-t>2)r.contacts.delete(key);
- if(s.hull<=0||s.cargo<=0)s.status='lost';
+ if(s.hull<=0||s.cargo<=0&&!s.expedition)s.status='lost';
  if(s.status==='flying'&&s.progress>=DURATION){s.progress=DURATION;s.arrivalHull=s.hull;s.hull=s.maxHull;s.status='delivered';s.warpAge=null;s.warning='Warp Gate reached. Hull repaired; remaining cargo secured.';}
+ settleExpedition(s);
 }
 export function stepFlight(s:Flight,input:Input,hull:Hull,mission:Mission,dt:number){
- if(s.hull<=0||s.cargo<=0){s.status='lost';disposeFlight(s);return;}
+ if(mission.contract&&!s.expedition)initializeExpedition(s,mission.contract);
+ if(s.hull<=0||s.cargo<=0&&!s.expedition){s.status='lost';settleExpedition(s);disposeFlight(s);return;}
  if(s.status!=='flying'||!Number.isFinite(dt)||dt<=0)return;
  let r=runtimes.get(s);if(!r){r={physics:new FlightPhysics(s.x,s.y,s.progress*CRUISE_SPEED,s.cruise,hull.armor),accumulator:0,contacts:new Map()};runtimes.set(s,r);}
  r.accumulator+=Math.min(dt,.1);

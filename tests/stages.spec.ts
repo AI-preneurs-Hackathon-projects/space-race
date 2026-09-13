@@ -44,31 +44,34 @@ test('multiple seeded stages can be delivered by steering and firing',()=>{
  expect(wins).toBeGreaterThanOrEqual(2);}
 });
 
-test('real delivery advances with a mobile cruise choice; stage retry preserves upgrades',async({page})=>{
- test.setTimeout(260000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE.WebGLProgram|Error compiling/.test(m.text()))errors.push(m.text());});
+test('real delivery advances with a mobile contract and cruise choice; death retry resets the expedition',async({page})=>{
+ test.setTimeout(300000);page.setDefaultTimeout(15000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE.WebGLProgram|Error compiling/.test(m.text()))errors.push(m.text());});
+ await page.route('**/api/ai-status',route=>route.fulfill({json:{available:false}}));
  await page.goto('/');await page.getByRole('button',{name:/03 Atlas/}).click();await page.getByRole('button',{name:'Launch delivery'}).click();
  await expect(page.locator('canvas')).toHaveAttribute('data-model-source','blender');await page.screenshot({path:'outputs/stage-start.png'});
  let captured=false;const deadline=Date.now()+180000;
  while(Date.now()<deadline&&await page.getByRole('button',{name:'Pause game'}).isVisible()){
-  if(await page.getByText('Cargo delivered.',{exact:true}).isVisible())break;
-  if(await page.getByText('Shipment lost.',{exact:true}).isVisible())throw Error('Steering controller lost the delivery');
+  if(await page.getByRole('heading',{name:'Delivery complete',exact:true}).isVisible())break;
+  if(await page.getByRole('heading',{name:'Expedition over',exact:true}).isVisible())throw Error('Steering controller lost the delivery');
   const state=await page.locator('canvas').getAttribute('data-flight-state');if(state){const s=JSON.parse(state),action=pilot(s,stageMission(1,0));
    await page.evaluate(a=>{for(const [code,pressed] of [['KeyD',a.x>.2],['KeyA',a.x<-.2],['KeyW',a.y>.2],['KeyS',a.y<-.2],['Space',true]] as const)window.dispatchEvent(new KeyboardEvent(pressed?'keydown':'keyup',{code,bubbles:true}));},action);
    if(!captured&&s.progress>120){await page.screenshot({path:'outputs/planet-approach.png'});captured=true;}
   }await page.waitForTimeout(90);
  }
- await expect(page.getByText('Cargo delivered.',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:/Reinforce hull/})).toContainText('125 → 140');await expect(page.getByRole('button',{name:/Boost cruise/})).toContainText('100% → 105%');await page.screenshot({path:'outputs/stage-cleared-desktop.png'});
- await page.setViewportSize({width:390,height:844});await page.screenshot({path:'outputs/stage-upgrades-mobile.png'});await page.getByRole('button',{name:/Boost cruise/}).click();await expect(page.getByRole('button',{name:'Launch stage 2'})).toBeVisible();await expect(page.locator('.progression-strip')).toContainText('1/4 CRUISE');
- await page.getByRole('button',{name:'Launch stage 2'}).click();await expect(page.locator('canvas')).toHaveAttribute('data-stage','2');const firstSeed=await page.locator('canvas').getAttribute('data-seed');await expect(page.getByRole('button',{name:'FIRE',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Delivery complete',exact:true})).toBeVisible();await expect(page.locator('.contract-option')).toHaveCount(3);await expect(page.getByRole('button',{name:'Hull 125 → 140',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'+5% cruise',exact:true})).toBeVisible();await page.screenshot({path:'outputs/stage-cleared-desktop.png'});
+ await page.setViewportSize({width:390,height:844});await page.locator('.contract-option.risk-high').click();await page.getByRole('button',{name:'+5% cruise',exact:true}).click();await page.getByRole('button',{name:'Enter Warp',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:'outputs/stage-upgrades-mobile.png'});
+ await page.getByRole('button',{name:'Enter Warp',exact:true}).click();await expect(page.getByRole('region',{name:'Checkpoint transfer'})).toContainText('100% cargo remaining');await expect(page.locator('canvas[data-stage]')).toHaveAttribute('data-stage','2',{timeout:15000});
+ const firstSeed=await page.locator('canvas').getAttribute('data-seed');await expect(page.getByRole('button',{name:'FIRE',exact:true})).toBeVisible();await expect(page.locator('.warp-status')).toContainText('1.05×');await expect(page.locator('.hud-vitals')).toContainText('100%');
  await page.getByRole('button',{name:'Pause game'}).click();await page.getByRole('button',{name:'Return to hangar'}).click();await expect(page.locator('.ship-specs')).toContainText('105%');
- await page.getByRole('button',{name:/Wraith Light interceptor/}).click();await expect(page.locator('.ship-specs')).toContainText('80');await page.getByRole('button',{name:'Launch stage 2'}).click();await expect(page.locator('canvas')).toHaveAttribute('data-stage','2');expect(await page.locator('canvas').getAttribute('data-seed')).not.toBe(firstSeed);
- const lossDeadline=Date.now()+65000;
- while(Date.now()<lossDeadline&&!await page.getByRole('button',{name:'Retry stage 2'}).isVisible()){
+ await page.getByRole('button',{name:/Wraith/}).click();await expect(page.locator('.ship-specs')).toContainText('80');await page.getByRole('button',{name:'Launch stage 2'}).click();await expect(page.locator('canvas[data-stage]')).toHaveAttribute('data-stage','2');expect(await page.locator('canvas').getAttribute('data-seed')).not.toBe(firstSeed);
+ const lossDeadline=Date.now()+80000;
+ while(Date.now()<lossDeadline&&!await page.getByRole('button',{name:'Retry',exact:true}).isVisible()){
   const raw=await page.locator('canvas').getAttribute('data-flight-state');if(raw){const s=JSON.parse(raw),target=s.entities.filter((e:{kind:string;z:number})=>e.kind==='asteroid'&&e.z<0).sort((a:{z:number},b:{z:number})=>b.z-a.z)[0];
    const a={x:target?target.x-s.x:0,y:target?target.y-s.y:0};await page.evaluate(a=>{for(const [code,pressed] of [['KeyD',a.x>.2],['KeyA',a.x<-.2],['KeyW',a.y>.2],['KeyS',a.y<-.2],['Space',false]] as const)window.dispatchEvent(new KeyboardEvent(pressed?'keydown':'keyup',{code,bubbles:true}));},a);
   }await page.waitForTimeout(90);
  }
- await expect(page.getByRole('button',{name:'Retry stage 2'})).toBeVisible();await page.getByRole('button',{name:'Retry stage 2'}).click();await expect(page.locator('.hud-vitals')).toContainText('80');await expect(page.locator('.warp-status')).toContainText('1.05×');expect(errors).toEqual([]);
+ await expect(page.getByRole('heading',{name:'Expedition over',exact:true})).toBeVisible();await expect(page.locator('.expedition-stats > div').first().locator('b')).toHaveText('1');await page.getByRole('button',{name:'Retry',exact:true}).click();
+ await expect(page.locator('canvas[data-stage]')).toHaveAttribute('data-stage','1');await expect(page.locator('.hud-vitals')).toContainText('80');await expect(page.locator('.hud-vitals')).toContainText('100%');await expect(page.locator('.warp-status')).toContainText('1.00×');expect(errors).toEqual([]);
 });
 
 test('offset portal alignment stays safe and hostile shots leave reaction time',()=>{

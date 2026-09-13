@@ -35,6 +35,14 @@ export function buildEncounterVisual(e:Entity){
  const back=new THREE.Mesh(new THREE.PlaneGeometry(2.3,.14),new THREE.MeshBasicMaterial({color:'#081823',transparent:true,opacity:.8,depthTest:false}));back.renderOrder=3;bar.add(back);
  const fill=new THREE.Mesh(new THREE.PlaneGeometry(2.2,.085),new THREE.MeshBasicMaterial({color:OBJECTS[id].color,depthTest:false}));fill.name='fill';fill.position.z=.005;fill.renderOrder=4;bar.add(fill);root.add(bar);bar.visible=false;
  const materials:THREE.MeshStandardMaterial[]=[];body.traverse(o=>{if(o instanceof THREE.Mesh){for(const m of Array.isArray(o.material)?o.material:[o.material])if(m instanceof THREE.MeshStandardMaterial){m.userData.baseColor=m.color.clone();m.userData.baseEmissive=m.emissive.clone();m.userData.baseIntensity=m.emissiveIntensity;materials.push(m);}}});root.userData.materials=materials;
+ if(e.expeditionRole){
+  const color=e.expeditionRole==='repair'?'#9cf8c4':e.expeditionRole==='authority'?'#a5caff':'#ffc080';
+  const canvas=document.createElement('canvas');canvas.width=256;canvas.height=64;
+  const ctx=canvas.getContext('2d')!;ctx.fillStyle='#071923dd';ctx.fillRect(0,0,256,64);ctx.strokeStyle=color;ctx.lineWidth=3;ctx.strokeRect(2,2,252,60);ctx.fillStyle=color;ctx.font='bold 23px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(e.expeditionRole==='repair'?'RELIEF CAPSULE':e.expeditionRole==='authority'?'AUTHORITY':'BOUNTY TARGET',128,33);
+  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+  const marker=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false}));marker.name='contract-marker';marker.position.y=e.radius+2;marker.scale.set(7,1.75,1);root.add(marker);
+  if(e.expeditionRole==='repair')for(const material of materials){material.userData.baseEmissive=new THREE.Color('#25c976');material.userData.baseIntensity=.8;}
+ }
  return root;
 }
 export function updateEncounterVisual(e:Entity,obj:THREE.Object3D,time:number,camera:THREE.Camera){
@@ -42,6 +50,7 @@ export function updateEncounterVisual(e:Entity,obj:THREE.Object3D,time:number,ca
  if(e.qw!==undefined&&e.kind!=='shot'&&e.kind!=='hostile')body.quaternion.set(e.qx??0,e.qy??0,e.qz??0,e.qw);
  if(e.kind==='portal'){const membrane=obj.getObjectByName('portal_membrane') as THREE.Mesh<THREE.BufferGeometry,THREE.ShaderMaterial>;membrane.material.uniforms.time.value=time;}
  const bar=obj.getObjectByName('healthbar');if(bar){bar.visible=(e.hitAge??0)>0&&e.hp>0&&!isField(typeOf(e))&&e.z< -2&&e.z> -150;bar.quaternion.copy(camera.quaternion);const fill=bar.getObjectByName('fill')!;fill.scale.x=Math.max(0,e.hp/(e.maxHp??OBJECTS[typeOf(e)].hp));fill.position.x=-(1-fill.scale.x)*1.1;}
+ const marker=obj.getObjectByName('contract-marker');if(marker){marker.visible=e.hp>0&&e.z< -8&&e.z> -360;const scale=THREE.MathUtils.clamp(-e.z/85,.7,3);marker.scale.set(7*scale,1.75*scale,1);}
  const flash=Math.min(1,(e.hitAge??0)*5),damage=e.hp/(e.maxHp??OBJECTS[typeOf(e)].hp);
  for(const m of (obj.userData.materials??[]) as THREE.MeshStandardMaterial[]){m.color.copy(m.userData.baseColor).multiplyScalar(.55+.45*Math.max(0,damage));m.emissive.copy(m.userData.baseEmissive).lerp(impactColor,flash);m.emissiveIntensity=(m.userData.baseIntensity??0)+flash*2;}
 }
