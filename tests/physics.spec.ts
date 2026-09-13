@@ -30,10 +30,11 @@ test('swept projectiles hit the nearest solid and impart impulse',()=>{
 test('debris produces collision damage without becoming another full explosion',()=>{
  const s=createFlight(FLEET[0]),rock=spawnObject(s,'iron-asteroid',0,3,-20);s.entities.push({id:s.serial++,kind:'debris',x:-2,y:3,z:-20,vx:12,vy:0,vz:0,radius:.2,mass:.18,hp:1,maxHp:1,age:0,fire:0,ttl:3.8,credit:true});advance(s,.3);expect(rock.hp).toBeLessThan(5);expect(s.effects.filter(e=>e.kind==='explosion')).toHaveLength(0);
 });
-test('repair, cargo and shield pickups change actual survivability',()=>{
- const s=createFlight(FLEET[0]);damage(s,50,40);s.immune=0;spawnObject(s,'repair-pod',0,0,-1);advance(s,.03);expect(s.hull).toBe(72);
- spawnObject(s,'cargo-crate',s.x,s.y,-1);advance(s,.03);expect(s.cargo).toBe(72);
- spawnObject(s,'shield-buoy',s.x,s.y,-1);advance(s,.03);expect(s.shield).toBeGreaterThan(7);damage(s,100,100);expect(s.hull).toBe(72);expect(s.cargo).toBe(72);
+test('only shield pickups grant protection; spent cargo and repair objects never restore resources',()=>{
+ const s=createFlight(FLEET[0]);damage(s,50,40);s.immune=100;
+ spawnObject(s,'repair-pod',0,0,-1);advance(s,.03);expect(s.hull).toBe(50);expect(s.cargo).toBe(60);
+ spawnObject(s,'cargo-crate',s.x,s.y,-1);advance(s,.03);expect(s.hull).toBe(50);expect(s.cargo).toBe(60);
+ spawnObject(s,'shield-buoy',s.x,s.y,-1);advance(s,.03);expect(s.shield).toBeGreaterThan(7);s.immune=0;damage(s,100,100);expect(s.hull).toBe(50);expect(s.cargo).toBe(60);
 });
 test('real jump displacement, acceleration and engine clocks agree',()=>{
  const normal=createFlight(FLEET[0]),boost=createFlight(FLEET[0]);boost.warpAge=0;advance(normal,8,{x:.05,y:.04,fire:true});advance(boost,8,{x:.05,y:.04,fire:true});

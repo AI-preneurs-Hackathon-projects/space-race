@@ -56,7 +56,7 @@ export function updateEffectVisual(fx:FlightEffect,g:THREE.Object3D){if(fx.kind=
 export function createDamageTrail(){
  const g=new THREE.Group();const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(36*3),3));geo.setAttribute('heat',new THREE.BufferAttribute(new Float32Array(36),1));
  const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{intensity:{value:0}},vertexShader:'attribute float heat; varying float vHeat; uniform float intensity; void main(){vHeat=heat;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_Position=projectionMatrix*mv;gl_PointSize=clamp((1.0-heat)*160.0/max(1.0,-mv.z),2.0,55.0)*intensity;}',fragmentShader:'varying float vHeat;uniform float intensity;void main(){float d=length(gl_PointCoord-.5)*2.0;vec3 color=mix(vec3(.12,.16,.19),vec3(1.0,.36,.06),pow(vHeat,4.0));gl_FragColor=vec4(color,(1.0-smoothstep(.05,1.0,d))*(.35+vHeat*.5)*intensity);}'});
- const points=new THREE.Points(geo,material);points.frustumCulled=false;g.add(points);const shield=new THREE.Mesh(new THREE.SphereGeometry(1.65,24,14),new THREE.MeshBasicMaterial({color:'#82eaff',wireframe:true,transparent:true,opacity:.1,depthWrite:false}));shield.name='shield';g.add(shield);return g;
+ const points=new THREE.Points(geo,material);points.frustumCulled=false;g.add(points);const shield=new THREE.Mesh(new THREE.SphereGeometry(1.65,24,14),new THREE.MeshBasicMaterial({color:'#82eaff',wireframe:true,transparent:true,opacity:.1,depthWrite:false}));shield.name='shield';shield.visible=false;g.add(shield);return g;
 }
 export function updateShipDamage(ship:THREE.Group,trail:THREE.Group,s:Flight,time:number){
  const ratio=s.hull/s.maxHull,damage=THREE.MathUtils.clamp((.7-ratio)/.7,0,1);

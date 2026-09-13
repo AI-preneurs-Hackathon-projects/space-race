@@ -12,19 +12,12 @@ import { cloneModel, preloadModels } from "@/lib/game/assets";
 import { createFlight, stepFlight, initializePhysics, disposeFlight, spawnObject, type Flight, type Input } from "@/lib/game/simulation";
 import { FLEET, ARRIVAL_START, DURATION, CRUISE_SPEED, WARP_MAX_SPEED, type Hull, type Mission } from "@/lib/game/types";
 
+import {addExhaust} from '@/lib/game/ship-exhaust';
+import type {FlightCondition} from '@/lib/game/types';
 import {portalLabelLayout,projectedBodyRect,overlaps,type ScreenRect} from "@/lib/game/portal-label";
 import {buildEncounterVisual,updateEncounterVisual,buildEffectVisual,updateEffectVisual,createDamageTrail,updateShipDamage} from "@/lib/game/combat-visuals";
 
-function addExhaust(root:THREE.Group,hull:Hull,enemy=false){
- root.updateMatrixWorld(true);const markers:THREE.Object3D[]=[];root.traverse(o=>{if(o.name.startsWith("exhaust_"))markers.push(o);});
- const exits=markers.length?markers.map(o=>root.worldToLocal(o.getWorldPosition(new THREE.Vector3()))):Array.from({length:hull.engines},(_,i)=>new THREE.Vector3((i-(hull.engines-1)/2)*1.13,.14,2.75));
- for(const point of exits){
-  const plume=new THREE.Group();plume.position.copy(point);plume.name="engine_plume";
-  const color=new THREE.Color(enemy?"#ff7855":"#49cfff").multiplyScalar(2.3);
-  for(let i=0;i<2;i++){const cone=new THREE.Mesh(new THREE.ConeGeometry(i?.14:.27,i?1.35:2.05,16),new THREE.MeshBasicMaterial({color:i?new THREE.Color("#d7f8ff").multiplyScalar(3):color,transparent:true,opacity:i?.8:.25,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));cone.rotation.x=Math.PI/2;cone.position.z=i?.67:1.02;plume.add(cone);}root.add(plume);
- }
-}
-export default function SpaceScene({hull,mission,stage,playing,paused,input,onUpdate,onError,onReady}:{hull:Hull;mission:Mission;stage:number;playing:boolean;paused:boolean;input:React.RefObject<Input>;onUpdate:(s:Flight)=>void;onError:(s:string)=>void;onReady:(ready:boolean)=>void}){
+export default function SpaceScene({hull,mission,stage,playing,paused,input,onUpdate,onError,onReady,initialCondition,flightStateRef}:{hull:Hull;mission:Mission;stage:number;playing:boolean;paused:boolean;input:React.RefObject<Input>;onUpdate:(s:Flight)=>void;onError:(s:string)=>void;onReady:(ready:boolean)=>void;initialCondition?:FlightCondition;flightStateRef?:React.RefObject<Flight>}){
  const container=useRef<HTMLDivElement>(null),portalLabel=useRef<HTMLDivElement>(null),pauseRef=useRef(paused),callback=useRef(onUpdate),errorRef=useRef(onError),readyRef=useRef(onReady);
  const [loading,setLoading]=useState(true);
  pauseRef.current=paused;callback.current=onUpdate;errorRef.current=onError;readyRef.current=onReady;
@@ -45,14 +38,14 @@ export default function SpaceScene({hull,mission,stage,playing,paused,input,onUp
   const fill=new THREE.DirectionalLight("#79b5ed",1.1);fill.position.set(-6,3,2);scene.add(fill);
   const rim=new THREE.DirectionalLight("#c4ecff",1.3);rim.position.set(-2,4,-8);scene.add(rim);
   const composer=new EffectComposer(renderer);composer.addPass(new RenderPass(scene,camera));const bloom=new UnrealBloomPass(new THREE.Vector2(800,600),.25,.5,1.8);composer.addPass(bloom);composer.addPass(new OutputPass());
-  const ship=new THREE.Group();scene.add(ship);const state=createFlight(hull);if(playing)ship.scale.setScalar(.55);
+  const ship=new THREE.Group();scene.add(ship);const state=createFlight(hull,initialCondition);if(playing&&flightStateRef)flightStateRef.current=state;if(playing)ship.scale.setScalar(.55);
   const starCount=mobile?400:700,starCenters=new Float32Array(starCount*3),starLines=new Float32Array(starCount*6),starGeometry=new THREE.BufferGeometry();
   for(let i=0;i<starCount;i++){const angle=Math.random()*Math.PI*2,radius=12+Math.random()*115;starCenters[i*3]=Math.cos(angle)*radius;starCenters[i*3+1]=Math.sin(angle)*radius;starCenters[i*3+2]=-Math.random()*480;}
   starGeometry.setAttribute("position",new THREE.BufferAttribute(starLines,3));const starMaterial=new THREE.LineBasicMaterial({color:profile.star,transparent:true,opacity:.65,blending:THREE.AdditiveBlending,depthWrite:false});const stars=new THREE.LineSegments(starGeometry,starMaterial);stars.frustumCulled=false;scene.add(stars);
   const destination=playing?buildDestinationPlanet(profile,mobile):null;if(destination)scene.add(destination.group);
   const station=new THREE.Group();
   if(playing){
-   const terminal=buildPortal();terminal.scale.setScalar(2);station.add(terminal);station.name='checkpoint_gate';station.visible=false;scene.add(station);
+   const terminal=buildPortal();terminal.getObjectByName('portal_membrane')!.visible=false;terminal.scale.setScalar(2);station.add(terminal);station.name='checkpoint_gate';station.visible=false;scene.add(station);
    camera.position.set(0,3.5,12);camera.lookAt(0,0,-35);
   }else{
    const base=new THREE.Mesh(new THREE.CylinderGeometry(4.1,4.22,.25,96),new THREE.MeshStandardMaterial({color:"#10212a",roughness:.75,metalness:.15}));base.position.y=-1.4;base.receiveShadow=true;scene.add(base);
@@ -73,7 +66,7 @@ export default function SpaceScene({hull,mission,stage,playing,paused,input,onUp
    const active=ready&&!pauseRef.current;let advance=0;if(active)elapsed+=dt;
    if(playing&&ready){
     const before=state.progress;if(active)stepFlight(state,input.current,hull,mission,dt);advance=state.progress-before;
-    destination?.update(state.progress,elapsed);station.visible=state.progress>ARRIVAL_START;station.position.z=-(DURATION-state.progress)*CRUISE_SPEED-18;station.rotation.z=.2;const terminalMembrane=station.getObjectByName('portal_membrane') as THREE.Mesh<THREE.BufferGeometry,THREE.ShaderMaterial>;terminalMembrane.material.uniforms.time.value=elapsed;
+    destination?.update(state.progress,elapsed);station.visible=state.progress>ARRIVAL_START;station.position.z=-(DURATION-state.progress)*CRUISE_SPEED;station.rotation.z=.2;const terminalMembrane=station.getObjectByName('portal_membrane') as THREE.Mesh<THREE.BufferGeometry,THREE.ShaderMaterial>;terminalMembrane.material.uniforms.time.value=elapsed;
     ship.position.set(state.x,state.y,Math.exp(-state.shotAge*32)*.18);ship.rotation.z=THREE.MathUtils.lerp(ship.rotation.z,-state.vx*.026,.1);ship.rotation.x=THREE.MathUtils.lerp(ship.rotation.x,state.vy*.013,.1);updateShipDamage(ship,damageTrail,state,elapsed);
     const follow=camera.aspect<.8?.86:.43;camera.position.x=THREE.MathUtils.lerp(camera.position.x,state.x*follow,.08);camera.position.y=THREE.MathUtils.lerp(camera.position.y,3.5+state.y*.42,.08);camera.lookAt(state.x*follow,state.y*.3,-35);
     const desiredFov=65+Math.max(0,state.speed/state.cruise-1)*8;camera.fov=THREE.MathUtils.lerp(camera.fov,desiredFov,.1);camera.updateProjectionMatrix();bloom.strength=.25+(state.speed-1)*.18;
@@ -84,7 +77,8 @@ export default function SpaceScene({hull,mission,stage,playing,paused,input,onUp
     for(const fx of state.effects){let obj=effects.get(fx.id);if(!obj){obj=buildEffectVisual(fx);scene.add(obj);effects.set(fx.id,obj);}updateEffectVisual(fx,obj);}
     if(portalLabel.current){
      const label=portalLabel.current;camera.updateMatrixWorld();
-     const placement=nearestPortal?portalLabelLayout(nearestPortal,camera,el.clientWidth,el.clientHeight,aimingArea):null;
+     const target=station.visible?{x:0,y:0,z:station.position.z,radius:8.6}:nearestPortal;label.textContent=station.visible?'Warp Gate':'JUMP GATE';
+     const placement=target?portalLabelLayout(target,camera,el.clientWidth,el.clientHeight,aimingArea):null;
      const bodies=[{x:state.x,y:state.y,z:0,radius:1.8},...state.entities.filter(e=>e.kind!=='portal'&&e.kind!=='shot'&&e.hp>0)];
      const obscured=placement&&(protectedUI.some(r=>overlaps(placement.rect,r))||bodies.some(e=>{const r=projectedBodyRect(e,camera,el.clientWidth,el.clientHeight);return r&&overlaps(placement.rect,r);}));
      label.style.display=placement&&!obscured?'block':'none';
@@ -101,6 +95,6 @@ export default function SpaceScene({hull,mission,stage,playing,paused,input,onUp
   };frame=requestAnimationFrame(loop);
   const lost=(e:Event)=>{e.preventDefault();errorRef.current("3D graphics were interrupted. Reload to return to the hangar.");};renderer.domElement.addEventListener("webglcontextlost",lost);
   return()=>{disposed=true;disposeFlight(state);cancelAnimationFrame(frame);observer.disconnect();renderer.domElement.removeEventListener("webglcontextlost",lost);disposeObject(scene);background.dispose();destination?.dispose();environment.dispose();bloom.dispose();composer.dispose();renderer.dispose();renderer.domElement.remove();};
- },[hull,mission,stage,playing,input]);
+ },[hull,mission,stage,playing,input,initialCondition,flightStateRef]);
  return <><div className="space-canvas" ref={container}/><div className="portal-label" ref={portalLabel} aria-hidden="true">JUMP GATE</div>{loading&&<div className="model-loading" role="status">Warming up flight systems…</div>}</>;
 }

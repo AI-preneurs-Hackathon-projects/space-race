@@ -1,4 +1,9 @@
 export type Hull = { id: string; name: string; role: string; color: string; widths: number[]; thickness: number; engines: number; handling: number; armor: number; cruise?:number; origin: "fleet" | "local" | "openai" };
+export type DifficultySetting='easy'|'normal'|'hard';
+export type FlightCondition={hull:number;cargo:number};
+export type ArrivalCondition=FlightCondition&{maxHull:number;stage:number};
+export type DirectorBeat={objectType:Exclude<ObjectType,'portal'>;pace:'calm'|'steady'|'intense'};
+export type SectionPlan={title:string;beats:DirectorBeat[]};
 export const FLEET: Hull[] = [
   { id:"kestrel",name:"Kestrel",role:"Balanced courier",color:"#f2a35c",widths:[.08,.32,.5,1.1,2,2.1,1.65,.8,.6],thickness:.42,engines:2,handling:1,armor:100,origin:"fleet" },
   { id:"wraith",name:"Wraith",role:"Light interceptor",color:"#7be4de",widths:[.06,.2,.35,.46,.65,1.95,2.15,.95,.4],thickness:.28,engines:2,handling:1.3,armor:80,origin:"fleet" },
@@ -8,7 +13,7 @@ import type { ObjectType } from './objects';
 export type EncounterKind = "asteroid" | "pirate" | "portal" | "object";
 /** at is a route-progress coordinate in normal-speed course-seconds, not wall time. */
 export type Encounter = { at:number; arrival?:number; kind:EncounterKind; x:number; y:number; count:number; objectType?:ObjectType; escort?:ObjectType; drift?:number; points?:{x:number;y:number;radius:number}[]; gap?:{axis:string;center:number;halfWidth:number;x:number;y:number}; portalRadius?:number };
-export type Mission = { title:string; events:Encounter[]; source:"openai"|"practice"; note:string;stage?:number;seed?:number;attempt?:number;challenge?:{tier:number;label:string;waves:number;gapWidth:number;portalRadius:number;pirateMotion:number;pirateInterval:number;aimLead?:number;bulletSpeed?:number;volley:number} };
+export type Mission = { title:string; events:Encounter[]; source:"openai"|"practice"; note:string;director?:SectionPlan;stage?:number;seed?:number;attempt?:number;challenge?:{tier:number;label:string;waves:number;gapWidth:number;portalRadius:number;pirateMotion:number;pirateInterval:number;aimLead?:number;bulletSpeed?:number;volley:number} };
 export const DURATION = 150;
 export const CRUISE_SPEED = 29;
 export const WARP_MAX_SPEED = 3;

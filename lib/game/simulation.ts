@@ -5,10 +5,10 @@ export { initializePhysics } from './physics';
 export type Entity={id:number;kind:EncounterKind|'shot'|'hostile'|'debris';objectType?:ObjectType;x:number;y:number;z:number;vx:number;vy:number;vz?:number;radius:number;wave?:number;anchorX?:number;anchorY?:number;hp:number;maxHp?:number;age:number;fire:number;mass?:number;hitAge?:number;ttl?:number;credit?:boolean;ownerId?:number;qx?:number;qy?:number;qz?:number;qw?:number};
 export type FlightEffect={id:number;kind:'hit'|'explosion'|'muzzle'|'collect'|'jump';x:number;y:number;z:number;age:number;life:number;size:number;color:string;seed:number};
 export type Input={x:number;y:number;fire:boolean};
-export type Flight={time:number;progress:number;cruise:number;speed:number;warpAge:number|null;portalsUsed:number;x:number;y:number;vx:number;vy:number;hull:number;maxHull:number;cargo:number;kills:number;shots:number;hits:number;immune:number;cooldown:number;next:number;lastEncounterArrival:number;serial:number;entities:Entity[];effects:FlightEffect[];status:'flying'|'delivered'|'lost';warning:string;shield:number;field:string;fieldX:number;fieldY:number;chainHits:number;collisions:number;distanceSaved:number;shotAge:number};
+export type Flight={time:number;progress:number;cruise:number;speed:number;warpAge:number|null;portalsUsed:number;x:number;y:number;vx:number;vy:number;hull:number;maxHull:number;cargo:number;kills:number;shots:number;hits:number;immune:number;cooldown:number;next:number;lastEncounterArrival:number;serial:number;entities:Entity[];effects:FlightEffect[];status:'flying'|'delivered'|'lost';warning:string;shield:number;field:string;fieldX:number;fieldY:number;chainHits:number;collisions:number;distanceSaved:number;shotAge:number;arrivalHull:number|null};
 type Runtime={physics:FlightPhysics;accumulator:number;contacts:Map<string,number>};
 const runtimes=new WeakMap<Flight,Runtime>();
-export function createFlight(hull:Hull):Flight{return {time:0,progress:0,cruise:hull.cruise??1,speed:hull.cruise??1,warpAge:null,portalsUsed:0,x:0,y:0,vx:0,vy:0,hull:hull.armor,maxHull:hull.armor,cargo:100,kills:0,shots:0,hits:0,immune:0,cooldown:0,next:0,lastEncounterArrival:0,serial:0,entities:[],effects:[],status:'flying',warning:'Steer with thrust. Shoot volatile rocks near enemies. Cyan gates boost real speed.',shield:0,field:'',fieldX:0,fieldY:0,chainHits:0,collisions:0,distanceSaved:0,shotAge:1};}
+export function createFlight(hull:Hull,condition?:{hull:number;cargo:number}):Flight{return {time:0,progress:0,cruise:hull.cruise??1,speed:hull.cruise??1,warpAge:null,portalsUsed:0,x:0,y:0,vx:0,vy:0,hull:clamp(condition?.hull??hull.armor,0,hull.armor),maxHull:hull.armor,cargo:clamp(condition?.cargo??100,0,100),kills:0,shots:0,hits:0,immune:0,cooldown:0,next:0,lastEncounterArrival:0,serial:0,entities:[],effects:[],status:'flying',warning:'Steer with thrust. Shoot volatile rocks near enemies. Cyan gates boost real speed.',shield:0,field:'',fieldX:0,fieldY:0,chainHits:0,collisions:0,distanceSaved:0,shotAge:1,arrivalHull:null};}
 export function disposeFlight(s:Flight){runtimes.get(s)?.physics.dispose();runtimes.delete(s);}
 export function physicsBodyCount(s:Flight){return runtimes.get(s)?.physics.bodies.size??0;}
 const smooth=(t:number)=>t*t*(3-2*t);
@@ -86,7 +86,7 @@ function forces(s:Flight,input:Input,hull:Hull,mission:Mission,p:FlightPhysics){
    const amp=mission.challenge?.pirateMotion??.35,x=(e.anchorX??e.x)+Math.sin(e.age*1.15+e.id)*amp,y=(e.anchorY??e.y)+Math.sin(e.age*.8+e.id)*amp*.35,v=b.linvel();
    b.addForce({x:clamp((x-e.x)*3-v.x*1.5,-4,4)*b.mass(),y:clamp((y-e.y)*3-v.y*1.5,-3,3)*b.mass(),z:clamp(-v.z*.15,-2,2)*b.mass()},true);
   }else if(e.objectType==='missile'){const v=b.linvel();b.addForce({x:clamp((s.x-e.x)*1.3-v.x,-3,3)*b.mass(),y:clamp((s.y-e.y)*1.3-v.y,-3,3)*b.mass(),z:clamp((20-v.z)*2,-10,10)*b.mass()},true);}
-  if(spec.collect&&Math.hypot(e.x-s.x,e.y-s.y,e.z)<e.radius+1){if(spec.collect==='repair')s.hull=Math.min(s.maxHull,s.hull+22);if(spec.collect==='cargo')s.cargo=Math.min(100,s.cargo+12);if(spec.collect==='shield')s.shield=8;e.hp=0;s.warning=spec.collect==='shield'?'Shield online for 8 seconds.':`${spec.name} collected. Supplies restored.`;effect(s,'collect',e,3,spec.color);}
+  if(s.status==='flying'&&spec.collect==='shield'&&Math.hypot(e.x-s.x,e.y-s.y,e.z)<e.radius+1){s.shield=8;e.hp=0;s.warning='Shield online for 8 seconds.';effect(s,'collect',e,3,spec.color);}
  }
 }
 function weapons(s:Flight,input:Input,hull:Hull,mission:Mission,p:FlightPhysics){
@@ -129,15 +129,17 @@ function tick(s:Flight,input:Input,hull:Hull,mission:Mission,r:Runtime){
   else if(nearest&&time!==Infinity){shot.hp=0;const body=p.bodies.get(nearest.id),direction=shot.kind==='shot'?-1:1;body?.applyImpulse({x:shot.vx*.04,y:shot.vy*.04,z:direction*3.5},true);hit(s,nearest,1,p,shot.kind==='shot');}
  }
  for(const e of s.entities){if(e.kind!=='portal'||e.hp<=0)continue;const before=old.get(e.id);if(!before||before.z>=0||e.z<0)continue;const fraction=clamp(-before.z/(e.z-before.z),0,1),x=oldPlayer.x+(s.x-oldPlayer.x)*fraction,y=oldPlayer.y+(s.y-oldPlayer.y)*fraction;e.hp=0;
-  if(Math.hypot(x-e.x,y-e.y)<=e.radius-.65&&s.warpAge===null&&s.portalsUsed<MAX_PORTALS){s.warpAge=0;s.portalsUsed++;s.warning='JUMP ENGAGED — accelerating to 3× cruise.';effect(s,'jump',{x:s.x,y:s.y,z:0},12,'#9ef1ff');s.shield=Math.max(s.shield,1.5);
+  if(s.status==='flying'&&Math.hypot(x-e.x,y-e.y)<=e.radius-.65&&s.warpAge===null&&s.portalsUsed<MAX_PORTALS){s.warpAge=0;s.portalsUsed++;s.warning='JUMP ENGAGED — accelerating to 3× cruise.';effect(s,'jump',{x:s.x,y:s.y,z:0},12,'#9ef1ff');s.shield=Math.max(s.shield,1.5);
    for(const threat of s.entities){if(threat.hp<=0||threat.kind==='portal'||threat.kind==='shot'||threat.z< -220*s.cruise||threat.z>25)continue;const body=p.bodies.get(threat.id);if(!body)continue;if(threat.kind==='hostile'){threat.hp=0;continue;}const dx=threat.x-s.x,dy=threat.y-s.y,n=Math.max(.1,Math.hypot(dx,dy));body.applyImpulse({x:(n<.2?1:dx/n)*Math.min(body.mass(),12)*20,y:dy/n*Math.min(body.mass(),12)*20,z:0},true);}
   }
  }
  const survivors=s.entities.filter(e=>e.hp>0&&e.z<32&&e.z> -800&&Math.abs(e.x)<85&&Math.abs(e.y)<65&&e.age<(e.ttl??38));const ids=new Set(survivors.map(e=>e.id));for(const id of p.bodies.keys())if(!ids.has(id))p.remove(id);s.entities=survivors;
  for(const [key,t] of r.contacts)if(s.time-t>2)r.contacts.delete(key);
- if(s.status==='flying'&&s.progress>=DURATION){s.progress=DURATION;s.status='delivered';s.warpAge=null;s.warning='Delivery complete.';}
+ if(s.hull<=0||s.cargo<=0)s.status='lost';
+ if(s.status==='flying'&&s.progress>=DURATION){s.progress=DURATION;s.arrivalHull=s.hull;s.hull=s.maxHull;s.status='delivered';s.warpAge=null;s.warning='Warp Gate reached. Hull repaired; remaining cargo secured.';}
 }
 export function stepFlight(s:Flight,input:Input,hull:Hull,mission:Mission,dt:number){
+ if(s.hull<=0||s.cargo<=0){s.status='lost';disposeFlight(s);return;}
  if(s.status!=='flying'||!Number.isFinite(dt)||dt<=0)return;
  let r=runtimes.get(s);if(!r){r={physics:new FlightPhysics(s.x,s.y,s.progress*CRUISE_SPEED,s.cruise,hull.armor),accumulator:0,contacts:new Map()};runtimes.set(s,r);}
  r.accumulator+=Math.min(dt,.1);

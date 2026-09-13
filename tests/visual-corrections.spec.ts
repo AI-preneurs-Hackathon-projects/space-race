@@ -30,8 +30,8 @@ for(const width of [1224,390])test(`gate label and jump presentation at ${width}
   await page.evaluate(age=>{const q=(window as any).__portalQA;Object.assign(q.state,{entities:[],effects:[{id:900,kind:'jump',x:0,y:0,z:0,age:.3,life:1.2,size:12,color:'#9ef1ff',seed:1}],warpAge:age,speed:age<1?1+age*2:3,shield:1.5});},age);await page.waitForTimeout(150);
   const v=await page.evaluate(()=>{const q=(window as any).__portalQA;return {shield:q.damageTrail.getObjectByName('shield').visible,jumpChildren:q.effects.get(900)?.children.length,shipChildren:q.ship.children.length,protected:q.state.shield};});expect(v.shield).toBe(false);expect(v.jumpChildren).toBe(0);expect(v.shipChildren).toBeGreaterThan(0);expect(v.protected).toBeGreaterThan(0);await page.screenshot({path:`outputs/warp-${width}-${age}.png`});
  }
- await page.evaluate(()=>{const q=(window as any).__portalQA;Object.assign(q.state,{warpAge:null,shield:5,effects:[],progress:149});});await page.waitForTimeout(100);
+ await page.evaluate(()=>{const q=(window as any).__portalQA;Object.assign(q.state,{warpAge:null,shield:5,effects:[],progress:141});});await page.waitForTimeout(100);
  expect(await page.evaluate(()=>(window as any).__portalQA.damageTrail.getObjectByName('shield').visible)).toBe(true);
- expect(await page.evaluate(()=>(window as any).__portalQA.station.visible)).toBe(true);await expect(page.locator('.portal-label')).toBeHidden();
+ expect(await page.evaluate(()=>(window as any).__portalQA.station.visible)).toBe(true);await expect(page.locator('.portal-label')).toHaveText('Warp Gate');await expect(page.locator('.portal-label')).toBeVisible();expect(await page.evaluate(()=>(window as any).__portalQA.station.getObjectByName('portal_membrane').visible)).toBe(false);await page.screenshot({path:`outputs/final-warp-gate-${width}.png`});
  fs.writeFileSync(`outputs/portal-${width}-report.json`,JSON.stringify(report,null,2));
 });
