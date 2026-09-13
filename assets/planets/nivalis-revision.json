@@ -1,0 +1,10 @@
+{
+  "tool": "Built-in ImageGen edit",
+  "input": "sources/nivalis-initial.png",
+  "output": "sources/nivalis.png",
+  "prompt": "Use case: precise-object-edit. Edit target: attached flat equirectangular texture of the entirely invented ice world Nivalis.\nChange only the ice fracture presentation. Completely REMOVE the dark linked polygonal/cellular crack web across the entire map, especially the center/right pale ice regions, and remove shattered-glass polygon lines inside the blue basins too. Replace those webs with largely continuous pale turquoise and ivory ice sheets, rich in fine parallel glacial striations, wind-scoured frost streaks and subtle layered glacier flow. Include only a FEW thin isolated irregular tapering blue fractures and isolated darker crevasses that never connect into a grid or closed polygons. No linked cells, tessellation, cobwebs, jigsaw fissures or shattered-glass patterns anywhere.\nPreserve the exact world and projection: the original broad dark-blue frozen basin silhouettes and their locations, pale layered glacier rims, the lower-left cryovolcanic fan and existing subtle small impacts. Keep the original invented geography and crisp near-satellite realistic ice/mineral detail; do not smooth it into soft cloudy noise. Preserve the restrained pale ice/deep-blue basin palette. Inside basins use coherent smooth blue frozen material with delicate directional streaks instead of crack cells.\nMaintain the same exact2:1 flat full-world opaque equirectangular composition, edge-to-edge terrain with longitude edge continuity and stretched polar detail. No globe, no border, no text, no real planet geography, no clouds or atmosphere. Evenly exposed albedo surface only, no directional sunlight, cast shadow, dark side or terminator. Return the edited texture at2048x1024 or larger if possible.",
+  "nativeSize": [
+    1774,
+    887
+  ]
+}

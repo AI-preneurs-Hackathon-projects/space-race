@@ -221,7 +221,7 @@ function surfaceTextures(profile: StageEnvironment, mobile: boolean) {
  return { texture: configureTexture(new THREE.DataTexture(albedo, width, height), true), detail: configureTexture(new THREE.DataTexture(detail, width, height)), emission: emission ? configureTexture(new THREE.DataTexture(emission, width, height), true) : null };
 }
 function cloudTexture(profile: StageEnvironment, mobile: boolean) {
- const detailedWeather = profile.kind === 'ocean' || profile.kind === 'salt';
+ const detailedWeather = profile.kind === 'ocean' || profile.kind === 'temperate';
  const width = detailedWeather ? (mobile ? 512 : 1024) : (mobile ? 256 : 512), height = width / 2, data = new Uint8Array(width * height * 4), context = surfaceContext(profile), direction = new Float64Array(3);
  const warm = profile.kind === 'desert' || profile.kind === 'volcanic', threshold = .66 - profile.cloudCover * .26;
  for (let j = 0; j < height; j++) for (let i = 0; i < width; i++) {
@@ -233,10 +233,10 @@ function cloudTexture(profile: StageEnvironment, mobile: boolean) {
    const angle = y * y * 3.6 + drift * .34, cs = Math.cos(angle), sn = Math.sin(angle), ax = x * cs - z * sn, az = x * sn + z * cs;
    const front = terrainNoise(ax * 8 + context.sx, y * 12 + context.sy, az * 8 + context.sz);
    const streak = terrainNoise(ax * 34 + context.sx, y * 85 + context.sy, az * 34 + context.sz);
-   const coverage = profile.kind === 'ocean' ? .523 : .598;
+   const coverage = profile.kind === 'ocean' ? .55 : .565;
    const mass = smooth(coverage, coverage + .060, front * .78 + streak * .22);
    const striation = smooth(.34, .69, streak);
-   alpha = mass * (.45 + striation * .55) * (profile.kind === 'ocean' ? .86 : .50);
+   alpha = mass * (.45 + striation * .55) * .70;
   } else {
    const warp = noise(x * 4 + context.sx, y * 4 + context.sy, z * 4 + context.sz) - .5;
    const f = terrainNoise(x * 9 + context.sx + warp * 2, y * 9 + context.sy, z * 9 + context.sz - warp * 2), wisps = terrainNoise(x * 26 + context.sx, y * 26 + context.sy, z * 26 + context.sz);

@@ -1,31 +1,13 @@
-# Ten destination appearances
+# Original fictional destination art
 
-The ten names, themes, repeat-cycle suffixes and deterministic positions come from
-`lib/game/stage-environment.ts`. The scene, checkpoint arrival, onward gate and
-removable footer route map consume that one profile.
+All ten worlds use newly generated fictional geography, with no real planet reference images. The separate weather mask is also original. Selene, Nivalis and Salar are invented bodies, not mapped Solar System moons. The small Rogue Moon encounter and asteroids retain their original Blender-generated crater/noise geology; no real-body maps are used by them or their guide portraits.
 
-`lib/game/space-environment.ts` generates complete spherical terrain for the fictional ocean
-world and provides the shared geometry, atmosphere and lighting. `planet-maps.ts`
-loads nine sharper source-based surface sets and two cloud shells from vendored maps.
-Original sources and license attribution are retained in `public/planet-maps/CREDITS.md`
-and visible in the field guide. No third-party network request occurs during play.
+Lossless originals are in `sources/`; exact built-in ImageGen prompts are in `prompts.json`. The tool returned 1774×887 opaque RGB images despite the larger requested dimensions. These are native originals, not claimed native 2K assets. Nivalis received one focused edit to remove a cellular crack web; its initial source and edit prompt are retained. Image generation is not deterministic, so the checked-in masters are the reproducible visual source.
 
-Desktop surfaces are 2048×1024 and mobile surfaces 1024×512. Only the current world is
-loaded, and flight readiness waits for its maps. Each body remains an opaque sphere
-with full azimuth/elevation, wrapping longitude, clamped latitude and constant polar
-texels. Disposed scenes release generated maps, including maps that finish loading
-after navigation. Planet light targets are local to the moving group; the body is
-positioned before the first frame, with restrained night illumination.
+Run `node assets/planets/prepare-textures.mjs` on macOS to encode compact quality-92 JPEGs using `sips` and refresh the source/runtime SHA-256 manifest. The generated weather image is a grayscale opacity mask; it does not contain continents or a real cloud-map layout. No external network requests occur when the game loads these assets.
 
-Generate reproducible close-up, full-rotation, north/south-pole and mobile comparisons
-with the development server running:
+`lib/game/planet-maps.ts` samples material maps at 2048×1024 on desktop and 1024×512 on mobile. It blends a narrow 1.5% strip at each longitude edge and smoothly converges polar texels. The ice surface replaces stretched polar striations within a feathered 12% latitude band (about 7% of sphere area across both poles) with continuous spherical frost, preserving the remaining original surface. Bump amplitude tapers toward each pole so UV derivatives cannot form a starburst. Terrain is fully opaque. Optional cloud alpha lives on a separate shell; lava emission is limited to orange channels. Original terrain colors remain unchanged apart from seam/pole conditioning. Bump and roughness are restrained artistic approximations, not measured elevations.
 
-```sh
-node assets/encounters/render_worlds.mjs
-```
+`lib/game/stage-environment.ts` supplies the ten names, themes, repeat-cycle suffixes and stable per-stage positions to the renderer, briefing and checkpoint flow. Only the current world's maps load; the scene waits for them and releases them on disposal. The shared sphere has complete azimuth/elevation coverage and a fixed radius; approach follows actual route progress.
 
-The helper captures actual game materials for all ten worlds, checks complete surface
-alpha, both pole rows and distinct texture hashes, and creates an HTML/PNG contact sheet
-in ignored `outputs/destination-worlds`. Physical approach and retry behavior are
-covered by `tests/environments-layout.spec.ts`; checkpoint flow by
-`tests/checkpoints.spec.ts`. These are visual assets for a fictional arcade game.
+With a development preview running, `node assets/encounters/render_worlds.mjs` renders all ten actual materials from four longitudes, both poles and mobile resolution. It checks surface alpha, equal seam/pole texels and unique world hashes, and writes the contact sheet and reports to ignored `outputs/destination-worlds`. Browser preview helpers suppress AI planning requests. Destination graphics remain scenery and do not alter flight physics.

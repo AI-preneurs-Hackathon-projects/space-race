@@ -8,7 +8,7 @@ test('arrival is named; one reward produces one pausable gate transfer and a fre
   const needle='const state = createFlight(hull);';expect(body).toContain(needle);
   await route.fulfill({response,body:body.replace(needle,`${needle} if(playing && stage === 1){state.progress=149.7;state.immune=1000;}`)});
  });
- await page.goto('/');await expect(page.getByRole('region',{name:'Checkpoint route map'})).toContainText('Port Meridian');
+ await page.goto('/');await expect(page.getByRole('region',{name:'Checkpoint route map'})).toHaveCount(0);
  await page.getByRole('button',{name:'Launch delivery'}).click();
  await expect(page.locator('.result-panel')).toContainText(`${stageEnvironment(1).name} checkpoint reached`);
  await expect(page.getByRole('button',{name:/Reinforce hull/})).toBeVisible();
@@ -19,6 +19,6 @@ test('arrival is named; one reward produces one pausable gate transfer and a fre
  await expect(page.locator('.hud-vitals')).toContainText('115');await expect(page.locator('.hud-vitals')).toContainText('100%');
  await expect(page.locator('.flight-bottom')).toContainText('0/2 JUMPS');await expect(page.locator('.route-progress')).toContainText(stageEnvironment(2).name);
  await page.getByRole('button',{name:'Pause game'}).click();await page.getByRole('button',{name:'Return to hangar'}).click();
- const map=page.getByRole('region',{name:'Checkpoint route map'});await expect(map.locator('[data-state="COMPLETED"]')).toContainText(stageEnvironment(1).name);await expect(map.locator('[aria-current="step"]')).toContainText(stageEnvironment(2).name);await expect(map).toContainText(stageEnvironment(3).name);
+ await expect(page.getByRole('region',{name:'Checkpoint route map'})).toHaveCount(0);await expect(page.locator('.mission-card')).toContainText(stageEnvironment(2).name);
  await expect(page.getByRole('button',{name:'Launch stage 2'})).toBeEnabled();expect(errors).toEqual([]);
 });

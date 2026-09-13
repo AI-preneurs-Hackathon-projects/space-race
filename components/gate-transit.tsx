@@ -3,7 +3,7 @@ import {useEffect,useRef} from 'react';
 import * as THREE from 'three';
 import {buildPortal,disposeObject} from '@/lib/game/meshes';
 import {stageEnvironment} from '@/lib/game/stage-environment';
-import styles from './route-map.module.css';
+import styles from './gate-transit.module.css';
 
 /** Presentation only: never advances a completed physics world or consumes optional gates. */
 export default function GateTransit({from,to,paused,onComplete,onPause}:{from:number;to:number;paused:boolean;onComplete:()=>void;onPause:()=>void}){

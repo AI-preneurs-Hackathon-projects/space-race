@@ -12,6 +12,7 @@ import { cloneModel, preloadModels } from "@/lib/game/assets";
 import { createFlight, stepFlight, initializePhysics, disposeFlight, spawnObject, type Flight, type Input } from "@/lib/game/simulation";
 import { FLEET, ARRIVAL_START, DURATION, CRUISE_SPEED, WARP_MAX_SPEED, type Hull, type Mission } from "@/lib/game/types";
 
+import {portalLabelLayout,projectedBodyRect,overlaps,type ScreenRect} from "@/lib/game/portal-label";
 import {buildEncounterVisual,updateEncounterVisual,buildEffectVisual,updateEffectVisual,createDamageTrail,updateShipDamage} from "@/lib/game/combat-visuals";
 
 function addExhaust(root:THREE.Group,hull:Hull,enemy=false){
@@ -65,8 +66,8 @@ export default function SpaceScene({hull,mission,stage,playing,paused,input,onUp
    renderer.domElement.dataset.modelSource=hull.origin==="fleet"?"blender":"local-custom";ready=true;setLoading(false);readyRef.current(true);
   }).catch(()=>{if(!disposed)errorRef.current("The 3D models or physics engine could not load. Reload the game to try again.");});
   const meshes=new Map<number,THREE.Object3D>(),effects=new Map<number,THREE.Object3D>();const damageTrail=createDamageTrail();damageTrail.visible=playing;scene.add(damageTrail);let frame=0,last=performance.now(),elapsed=0,ui=0;
-  const resize=()=>{const w=el.clientWidth,h=el.clientHeight;if(!w||!h)return;renderer.setSize(w,h);composer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();};const observer=new ResizeObserver(resize);observer.observe(el);resize();
-  const projected=new THREE.Vector3();
+  let protectedUI:ScreenRect[]=[],aimingArea:ScreenRect|undefined;
+  const resize=()=>{const w=el.clientWidth,h=el.clientHeight;if(!w||!h)return;renderer.setSize(w,h);composer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();const origin=el.getBoundingClientRect();protectedUI=Array.from(el.parentElement?.querySelectorAll('.hud-top,.warp-status,.flight-message,.flight-bottom,.touch-controls,.aim-reticle')??[]).map(node=>{const r=node.getBoundingClientRect();const bounds={left:r.left-origin.left-6,right:r.right-origin.left+6,top:r.top-origin.top-6,bottom:r.bottom-origin.top+6};if(node.classList.contains('aim-reticle'))aimingArea=bounds;return bounds;}).filter(r=>r.right-r.left>12&&r.bottom-r.top>12);};const observer=new ResizeObserver(resize);observer.observe(el);resize();
   const loop=(now:number)=>{
    const dt=Math.min((now-last)/1000,.1);last=now;frame=requestAnimationFrame(loop);
    const active=ready&&!pauseRef.current;let advance=0;if(active)elapsed+=dt;
@@ -81,7 +82,14 @@ export default function SpaceScene({hull,mission,stage,playing,paused,input,onUp
     for(const e of state.entities){let obj=meshes.get(e.id);if(!obj){obj=buildEncounterVisual(e);scene.add(obj);meshes.set(e.id,obj);}updateEncounterVisual(e,obj,elapsed,camera);if(e.kind==='portal'&&e.z< -8&&(!nearestPortal||e.z>nearestPortal.z))nearestPortal=e;}
     const fxIds=new Set(state.effects.map(e=>e.id));for(const [id,obj] of effects)if(!fxIds.has(id)){scene.remove(obj);disposeObject(obj);effects.delete(id);}
     for(const fx of state.effects){let obj=effects.get(fx.id);if(!obj){obj=buildEffectVisual(fx);scene.add(obj);effects.set(fx.id,obj);}updateEffectVisual(fx,obj);}
-    if(portalLabel.current){const label=portalLabel.current;if(nearestPortal){projected.set(nearestPortal.x,nearestPortal.y+6,nearestPortal.z).project(camera);label.style.display=Math.abs(projected.x)<.9&&Math.abs(projected.y)<.9?"block":"none";label.style.left=`${(projected.x*.5+.5)*el.clientWidth}px`;label.style.top=`${(-projected.y*.5+.5)*el.clientHeight}px`;}else label.style.display="none";}
+    if(portalLabel.current){
+     const label=portalLabel.current;camera.updateMatrixWorld();
+     const placement=nearestPortal?portalLabelLayout(nearestPortal,camera,el.clientWidth,el.clientHeight,aimingArea):null;
+     const bodies=[{x:state.x,y:state.y,z:0,radius:1.8},...state.entities.filter(e=>e.kind!=='portal'&&e.kind!=='shot'&&e.hp>0)];
+     const obscured=placement&&(protectedUI.some(r=>overlaps(placement.rect,r))||bodies.some(e=>{const r=projectedBodyRect(e,camera,el.clientWidth,el.clientHeight);return r&&overlaps(placement.rect,r);}));
+     label.style.display=placement&&!obscured?'block':'none';
+     if(placement){label.style.left=`${placement.x}px`;label.style.top=`${placement.bottom}px`;label.style.transform=`translate(-50%,-100%) scale(${placement.scale})`;label.style.opacity=String(placement.opacity);}
+    }
     ui+=dt;if(ui>.08){ui=0;if(process.env.NODE_ENV==='development')renderer.domElement.dataset.flightState=JSON.stringify({x:state.x,y:state.y,progress:state.progress,speed:state.speed,entities:state.entities});renderer.domElement.dataset.progress=state.progress.toFixed(2);renderer.domElement.dataset.stage=String(mission.stage??1);renderer.domElement.dataset.seed=String(mission.seed??0);callback.current({...state,entities:[],effects:[]});}
    }else if(!playing){ship.rotation.y=2.0+elapsed*.08;ship.position.y=Math.sin(elapsed*.8)*.06;}
    const warp=THREE.MathUtils.clamp((state.speed/state.cruise-1)/(WARP_MAX_SPEED-1),0,1);
@@ -94,5 +102,5 @@ export default function SpaceScene({hull,mission,stage,playing,paused,input,onUp
   const lost=(e:Event)=>{e.preventDefault();errorRef.current("3D graphics were interrupted. Reload to return to the hangar.");};renderer.domElement.addEventListener("webglcontextlost",lost);
   return()=>{disposed=true;disposeFlight(state);cancelAnimationFrame(frame);observer.disconnect();renderer.domElement.removeEventListener("webglcontextlost",lost);disposeObject(scene);background.dispose();destination?.dispose();environment.dispose();bloom.dispose();composer.dispose();renderer.dispose();renderer.domElement.remove();};
  },[hull,mission,stage,playing,input]);
- return <><div className="space-canvas" ref={container}/><div className="portal-label" ref={portalLabel}>JUMP PORTAL<small>FLY THROUGH THE OPENING</small></div>{loading&&<div className="model-loading" role="status">Warming up flight systems…</div>}</>;
+ return <><div className="space-canvas" ref={container}/><div className="portal-label" ref={portalLabel} aria-hidden="true">JUMP GATE</div>{loading&&<div className="model-loading" role="status">Warming up flight systems…</div>}</>;
 }
